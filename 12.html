@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro e Desempenho de Questões</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chartjs-plugin-annotation for target line -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
+    <script type="module">
+        // Global variables for data
+        let currentRecords = []; // Stores all fetched records
+        let currentFilterMateria = 'todos'; // Current filter for materia
+        let currentFilterAssunto = 'todos'; // Current filter for assunto
+        let currentStartDate = ''; // Current filter for start date
+        let currentEndDate = ''; // Current filter for end date
+        let currentAccuracyThreshold = 70; // User-defined accuracy threshold for improvement areas
+
+        // Display settings, stored in localStorage
+        let displaySettings = {
+            showOverallSummary: true,
+            showOverallAccuracyChart: true,
+            showMateriaAccuracyChart: true,
+            showAssuntoAccuracyChart: true,
+            showTrendChart: true,
+            showImprovementAreas: true,
+            showAssuntoRevisions: true
+        };
+
+        // Comparison settings for the trend chart
+        let comparisonSettings = {
+            type: 'none', // 'none', 'materia', 'assunto'
+            items: [] // Array of selected materia/assunto names for comparison
+        };
+
+        // Helper function to display messages
+        const showMessage = (message, type = 'info') => {
+            const statusMessage = document.getElementById('status-message');
+            if (statusMessage) {
+                statusMessage.textContent = message;
+                statusMessage.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
+                if (type === 'success') {
+                    statusMessage.classList.add('bg-green-100', 'text-green-800');
+                } else if (type === 'error') {
+                    statusMessage.classList.add('bg-red-100', 'text-red-800');
+                } else if (type === 'warning') {
+                    statusMessage.classList.add('bg-yellow-100', 'text-yellow-800');
+                }
+                statusMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                }, 3000);
+            } else {
+                console.warn("Status message element not found.");
+            }
+        };
+
+        // Function to save current records to localStorage
+        const saveRecordsToLocalStorage = () => {
+            try {
+                localStorage.setItem('questionRecords', JSON.stringify(currentRecords));
+                console.log("Dados salvos no localStorage.");
+            } catch (e) {
+                console.error("Erro ao salvar dados no localStorage:", e);
+                showMessage('Erro ao salvar dados localmente.', 'error');
+            }
+        };
+
+        // Function to load question data from localStorage
+        const loadQuestionData = () => {
+            try {
+                const storedRecords = localStorage.getItem('questionRecords');
+                if (storedRecords) {
+                    currentRecords = JSON.parse(storedRecords);
+                    console.log("Dados carregados do localStorage:", currentRecords);
+                } else {
+                    currentRecords = [];
+                    console.log("Nenhum dado encontrado no localStorage. Iniciando com registros vazios.");
+                }
+
+                // Defer initialization to ensure DOM elements are ready
+                setTimeout(() => {
+                    // Load display settings from localStorage
+                    const storedDisplaySettings = localStorage.getItem('displaySettings');
+                    if (storedDisplaySettings) {
+                        displaySettings = { ...displaySettings, ...JSON.parse(storedDisplaySettings) };
+                    }
+                    // Load comparison settings from localStorage
+                    const storedComparisonSettings = localStorage.getItem('comparisonSettings');
+                    if (storedComparisonSettings) {
+                        comparisonSettings = { ...comparisonSettings, ...JSON.parse(storedComparisonSettings) };
+                    }
+
+                    initializeDisplaySettingsCheckboxes(); // Update checkboxes based on loaded settings
+                    initializeComparisonSettings(); // Update comparison UI based on loaded settings
+
+                    // Update UI with filtered data
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                    populateRecordsTable(currentRecords);
+                    populateMateriaFilter(currentRecords);
+                    populateAssuntoFilter(currentRecords);
+                    populateDatalists(currentRecords);
+
+                    // Show initial backup message if no records exist
+                    if (currentRecords.length === 0) {
+                        showMessage('Bem-vindo! Seus dados serão salvos automaticamente e exportados para CSV a cada alteração. Mantenha os arquivos baixados em segurança para backup.', 'info');
+                    }
+
+                }, 0); // Defer execution
+            } catch (e) {
+                console.error("Erro ao carregar dados do localStorage:", e);
+                showMessage('Erro ao carregar dados de desempenho do armazenamento local.', 'error');
+                currentRecords = []; // Reset if corrupted
+            }
+        };
+
+        // Function to save display settings to localStorage
+        const saveDisplaySettings = () => {
+            try {
+                localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
+            } catch (e) {
+                console.error("Erro ao salvar configurações de exibição:", e);
+            }
+        };
+
+        // Function to save comparison settings to localStorage
+        const saveComparisonSettings = () => {
+            try {
+                localStorage.setItem('comparisonSettings', JSON.stringify(comparisonSettings));
+            } catch (e) {
+                console.error("Erro ao salvar configurações de comparação:", e);
+            }
+        };
+
+        // Function to initialize display settings checkboxes
+        const initializeDisplaySettingsCheckboxes = () => {
+            document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
+                if (checkbox) {
+                    checkbox.checked = displaySettings[checkbox.id];
+                    const parentLabel = checkbox.closest('label');
+                    if (parentLabel) {
+                        parentLabel.classList.toggle('bg-blue-100', checkbox.checked);
+                        parentLabel.classList.toggle('border-blue-400', checkbox.checked);
+                        parentLabel.classList.toggle('bg-gray-50', !checkbox.checked);
+                        parentLabel.classList.toggle('border-gray-300', !checkbox.checked);
+                    }
+                }
+            });
+        };
+
+        // Function to initialize comparison settings UI
+        const initializeComparisonSettings = () => {
+            const compareTypeRadios = document.querySelectorAll('input[name="compare-type"]');
+            compareTypeRadios.forEach(radio => {
+                if (radio.value === comparisonSettings.type) {
+                    radio.checked = true;
+                }
+            });
+            updateComparisonOptionsVisibility(); // Show/hide multi-select based on type
+            populateComparisonSelectionButtons(); // Populate and select items using new buttons
+        };
+
+        // Function to add a new question record
+        const addQuestionRecord = (record) => {
+            // Assign a simple unique ID for local management
+            record.id = Date.now().toString();
+            currentRecords.push(record);
+            saveRecordsToLocalStorage(); // Persist changes
+            showMessage('Registro adicionado com sucesso!', 'success');
+            // Refresh UI
+            updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+            populateRecordsTable(currentRecords);
+            populateMateriaFilter(currentRecords);
+            populateAssuntoFilter(currentRecords);
+            populateDatalists(currentRecords);
+            populateComparisonSelectionButtons(); // Update comparison options
+        };
+
+        // Function to update an existing question record
+        const updateQuestionRecord = (recordId, updatedData) => {
+            const index = currentRecords.findIndex(record => record.id === recordId);
+            if (index !== -1) {
+                currentRecords[index] = { ...currentRecords[index], ...updatedData };
+                saveRecordsToLocalStorage(); // Persist changes
+                showMessage('Registro atualizado com sucesso!', 'success');
+                closeEditModal();
+                // Refresh UI
+                updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                populateRecordsTable(currentRecords);
+                populateMateriaFilter(currentRecords);
+                populateAssuntoFilter(currentRecords);
+                populateDatalists(currentRecords);
+                populateComparisonSelectionButtons(); // Update comparison options
+            } else {
+                showMessage('Registro não encontrado para atualização.', 'error');
+            }
+        };
+
+        // Function to delete a question record
+        const deleteQuestionRecord = (recordId) => {
+            showConfirmationModal('Tem certeza que deseja excluir este registro?', () => {
+                currentRecords = currentRecords.filter(record => record.id !== recordId);
+                saveRecordsToLocalStorage(); // Persist changes
+                showMessage('Registro excluído com sucesso!', 'success');
+                // Refresh UI
+                updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                populateRecordsTable(currentRecords);
+                populateMateriaFilter(currentRecords);
+                populateAssuntoFilter(currentRecords);
+                populateDatalists(currentRecords);
+                populateComparisonSelectionButtons(); // Update comparison options
+            });
+        };
+
+        // --- Chart.js instances ---
+        let materiaChart;
+        let assuntoChart;
+        let overallChart;
+        let comparisonTrendChart; // Renamed from assuntoTrendChart
+
+        // Function to update the performance display and graphs
+        const updatePerformanceDisplay = (records, filterMateria = 'todos', filterAssunto = 'todos', startDate = '', endDate = '') => {
+            const performanceSummary = document.getElementById('performance-summary');
+            if (!performanceSummary) return; // Ensure element exists
+
+            performanceSummary.innerHTML = ''; // Clear previous content
+
+            let recordsForMainFilters = records; // Records filtered by main filters (materia, assunto, date)
+
+            // Apply main filters (Materia, Assunto, Date)
+            if (filterMateria !== 'todos') {
+                recordsForMainFilters = recordsForMainFilters.filter(record => record.materia.toLowerCase() === filterMateria.toLowerCase());
+            }
+            if (filterAssunto !== 'todos') {
+                recordsForMainFilters = recordsForMainFilters.filter(record => record.assunto.toLowerCase() === filterAssunto.toLowerCase());
+            }
+            if (startDate && endDate) {
+                recordsForMainFilters = recordsForMainFilters.filter(record => {
+                    const recordDate = new Date(record.data);
+                    const start = new Date(startDate);
+                    const end = new Date(new Date(endDate).setDate(new Date(endDate).getDate() + 1)); // Include end date fully
+                    return recordDate >= start && recordDate < end;
+                });
+            } else if (startDate) {
+                recordsForMainFilters = recordsForMainFilters.filter(record => {
+                    const recordDate = new Date(record.data);
+                    const start = new Date(startDate);
+                    return recordDate >= start;
+                });
+            } else if (endDate) {
+                recordsForMainFilters = recordsForMainFilters.filter(record => {
+                    const recordDate = new Date(record.data);
+                    const end = new Date(new Date(endDate).setDate(new Date(endDate).getDate() + 1));
+                    return recordDate < end;
+                });
+            }
+
+            // Determine the records to be displayed in the charts and summaries
+            // If comparison is active and items are selected, filter recordsForMainFilters further
+            let recordsForDisplay = recordsForMainFilters;
+            if (comparisonSettings.type !== 'none' && comparisonSettings.items.length > 0) {
+                if (comparisonSettings.type === 'materia') {
+                    recordsForDisplay = recordsForMainFilters.filter(record =>
+                        comparisonSettings.items.includes(record.materia.toLowerCase())
+                    );
+                } else if (comparisonSettings.type === 'assunto') {
+                    recordsForDisplay = recordsForMainFilters.filter(record =>
+                        comparisonSettings.items.includes(record.assunto.toLowerCase())
+                    );
+                }
+            }
+
+
+            if (recordsForDisplay.length === 0) {
+                if (displaySettings.showOverallSummary) {
+                    performanceSummary.innerHTML += `
+                        <div class="mb-6 p-4 bg-blue-50 rounded-lg shadow-inner">
+                            <h3 class="text-xl font-semibold text-blue-700 mb-2">Desempenho Geral</h3>
+                            <p class="text-gray-600">Nenhum registro encontrado para os filtros atuais. Adicione questões ou ajuste os filtros.</p>
+                            <p class="text-lg text-blue-800">Número de Revisões: <span class="font-bold">0</span></p>
+                        </div>
+                    `;
+                }
+                // Destroy existing charts if no data
+                if (materiaChart) materiaChart.destroy();
+                if (assuntoChart) assuntoChart.destroy();
+                if (overallChart) overallChart.destroy();
+                if (comparisonTrendChart) comparisonTrendChart.destroy(); // Destroy comparison trend chart
+                return;
+            }
+
+            // Calculate overall performance
+            let totalFeita = 0;
+            let totalAcertada = 0;
+            recordsForDisplay.forEach(record => { // Use recordsForDisplay
+                totalFeita += record.quantidadeFeita;
+                totalAcertada += record.quantidadeAcertada;
+            });
+            const totalErros = totalFeita - totalAcertada;
+            const overallAccuracy = totalFeita > 0 ? (totalAcertada / totalFeita) * 100 : 0;
+
+            // Group by Materia and Assunto
+            const performanceByMateria = {};
+            const performanceByAssunto = {};
+
+            recordsForDisplay.forEach(record => { // Use recordsForDisplay
+                const materia = record.materia.toLowerCase();
+                const assunto = record.assunto.toLowerCase();
+
+                if (!performanceByMateria[materia]) {
+                    performanceByMateria[materia] = { feita: 0, acertada: 0 };
+                }
+                performanceByMateria[materia].feita += record.quantidadeFeita;
+                performanceByMateria[materia].acertada += record.quantidadeAcertada;
+
+                if (!performanceByAssunto[assunto]) {
+                    performanceByAssunto[assunto] = { feita: 0, acertada: 0 };
+                }
+                performanceByAssunto[assunto].feita += record.quantidadeFeita;
+                performanceByAssunto[assunto].acertada += record.quantidadeAcertada;
+            });
+
+            // Calculate accuracy for each materia and assunto
+            const materiaAccuracy = Object.entries(performanceByMateria).map(([materia, data]) => ({
+                name: materia,
+                accuracy: data.feita > 0 ? (data.acertada / data.feita) * 100 : 0,
+                feita: data.feita, // Add total feita
+                acertada: data.acertada,
+                erros: data.feita - data.acertada
+            }));
+
+            const assuntoAccuracy = Object.entries(performanceByAssunto).map(([assunto, data]) => ({
+                name: assunto,
+                accuracy: data.feita > 0 ? (data.acertada / data.feita) * 100 : 0,
+                feita: data.feita, // Add total feita
+                acertada: data.acertada,
+                erros: data.feita - data.acertada
+            }));
+
+            // Identify areas for improvement (using user-defined threshold)
+            const materiasToImprove = materiaAccuracy.filter(m => m.accuracy < currentAccuracyThreshold).sort((a, b) => a.accuracy - b.accuracy);
+            const assuntosToImprove = assuntoAccuracy.filter(a => a.accuracy < currentAccuracyThreshold).sort((a, b) => a.accuracy - b.accuracy);
+
+            // Display overall performance with literal quantities - Conditional
+            if (displaySettings.showOverallSummary) {
+                performanceSummary.innerHTML += `
+                    <div class="mb-6 p-4 bg-blue-50 rounded-lg shadow-inner">
+                        <h3 class="text-xl font-semibold text-blue-700 mb-2">Desempenho Geral ${filterMateria !== 'todos' ? `em ${filterMateria.toUpperCase()}` : ''} ${filterAssunto !== 'todos' ? ` - Assunto: ${filterAssunto.toUpperCase()}` : ''}</h3>
+                        <p class="text-lg text-blue-800">Total de Questões Feitas: <span class="font-bold">${totalFeita}</span></p>
+                        <p class="text-lg text-blue-800">Total de Acertos: <span class="font-bold">${totalAcertada}</span></p>
+                        <p class="text-lg text-blue-800">Total de Erros: <span class="font-bold">${totalErros}</span></p>
+                        <p class="text-2xl font-bold text-blue-900">Precisão Geral: ${overallAccuracy.toFixed(2)}%</p>
+                        <p class="text-lg text-blue-800">Número de Revisões: <span class="font-bold">${recordsForDisplay.length}</span></p>
+                    </div>
+                `;
+            }
+
+
+            // Display revisions per assunto if only materia is filtered - Conditional
+            if (displaySettings.showAssuntoRevisions && filterMateria !== 'todos' && filterAssunto === 'todos') {
+                const revisionsByAssunto = {};
+                recordsForDisplay.forEach(record => { // Use recordsForDisplay
+                    const assunto = record.assunto.toLowerCase();
+                    if (!revisionsByAssunto[assunto]) {
+                        revisionsByAssunto[assunto] = { count: 0, feita: 0, acertada: 0 };
+                    }
+                    revisionsByAssunto[assunto].count++;
+                    revisionsByAssunto[assunto].feita += record.quantidadeFeita;
+                    revisionsByAssunto[assunto].acertada += record.quantidadeAcertada;
+                });
+
+                let assuntoRevisionsHtml = `
+                    <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Revisões por Assunto em ${filterMateria.toUpperCase()}</h3>
+                        <ul class="list-disc list-inside text-gray-800">
+                `;
+                Object.entries(revisionsByAssunto).sort((a, b) => b[1].count - a[1].count).forEach(([assunto, data]) => {
+                    const accuracy = data.feita > 0 ? (data.acertada / data.feita) * 100 : 0;
+                    assuntoRevisionsHtml += `<li>${assunto.toUpperCase()}: ${data.count} revisões (${data.feita} questões, ${data.acertada} acertos, ${accuracy.toFixed(2)}% precisão)</li>`;
+                });
+                assuntoRevisionsHtml += `
+                        </ul>
+                    </div>
+                `;
+                performanceSummary.innerHTML += assuntoRevisionsHtml;
+            }
+
+
+            // Display areas to improve - Conditional
+            if (displaySettings.showImprovementAreas && (materiasToImprove.length > 0 || assuntosToImprove.length > 0)) {
+                performanceSummary.innerHTML += `
+                    <div class="mb-6 p-4 bg-red-50 rounded-lg shadow-inner">
+                        <h3 class="text-xl font-semibold text-red-700 mb-2">Áreas para Melhorar (Precisão < ${currentAccuracyThreshold}%)</h3>
+                        ${materiasToImprove.length > 0 ? `
+                            <h4 class="font-medium text-red-600 mt-3">Matérias:</h4>
+                            <ul class="list-disc list-inside text-red-800">
+                                ${materiasToImprove.map(m => `<li>${m.name.toUpperCase()}: ${m.accuracy.toFixed(2)}% (${m.feita} questões, ${m.acertada} acertos, ${m.erros} erros)</li>`).join('')}
+                            </ul>
+                        ` : '<p class="text-red-800">Excelente! Nenhuma matéria abaixo do limite de precisão.</p>'}
+                        ${assuntosToImprove.length > 0 ? `
+                            <h4 class="font-medium text-red-600 mt-3">Assuntos:</h4>
+                            <ul class="list-disc list-inside text-red-800">
+                                ${assuntosToImprove.map(a => `<li>${a.name.toUpperCase()}: ${a.accuracy.toFixed(2)}% (${a.feita} questões, ${a.acertada} acertos, ${a.erros} erros)</li>`).join('')}
+                            </ul>
+                        ` : '<p class="text-red-800">Ótimo! Nenhuma assunto abaixo do limite de precisão.</p>'}
+                    </div>
+                `;
+            } else if (displaySettings.showImprovementAreas) { // If user wants to see improvement areas but none exist
+                 performanceSummary.innerHTML += `
+                    <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-inner">
+                        <h3 class="text-xl font-semibold text-green-700 mb-2">Parabéns!</h3>
+                        <p class="text-green-800">Sua precisão está excelente em todas as matérias e assuntos, ou acima do limite de ${currentAccuracyThreshold}%!</p>
+                    </div>
+                `;
+            }
+
+
+            // Render Charts - Conditional
+            renderCharts(overallAccuracy, materiaAccuracy, assuntoAccuracy, recordsForDisplay, recordsForMainFilters, filterMateria, filterAssunto); // Pass recordsForMainFilters as well
+        };
+
+        // Function to render/update Chart.js graphs
+        const renderCharts = (overallAccuracy, materiaAccuracy, assuntoAccuracy, recordsForDisplay, recordsForMainFilters, filterMateria, filterAssunto) => {
+            // Overall Accuracy Chart
+            const overallCtx = document.getElementById('overallAccuracyChart');
+            if (!overallCtx) { // Added null check for canvas context
+                if (overallChart) overallChart.destroy();
+                const container = document.getElementById('overallAccuracyChartContainer');
+                if (container) container.classList.add('hidden'); // Hide container if canvas not found
+                return;
+            }
+            if (overallChart) overallChart.destroy();
+            const overallChartContainer = document.getElementById('overallAccuracyChartContainer');
+            if (overallChartContainer) overallChartContainer.classList.toggle('hidden', !displaySettings.showOverallAccuracyChart);
+            if (displaySettings.showOverallAccuracyChart) {
+                overallChart = new Chart(overallCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Acertos', 'Erros'],
+                        datasets: [{
+                            data: [overallAccuracy, 100 - overallAccuracy],
+                            backgroundColor: ['#36A2EB', '#FF6384'],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Precisão Geral',
+                                font: { size: 18 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                    }
+                                        if (context.parsed !== null) {
+                                            label += context.parsed.toFixed(2) + '%';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            // Materia Accuracy Bar Chart
+            const materiaCtx = document.getElementById('materiaAccuracyChart');
+            if (!materiaCtx) { // Added null check for canvas context
+                if (materiaChart) materiaChart.destroy();
+                const container = document.getElementById('materiaAccuracyChartContainer');
+                if (container) container.classList.add('hidden'); // Hide container if canvas not found
+                return;
+            }
+            if (materiaChart) materiaChart.destroy();
+            const materiaChartContainer = document.getElementById('materiaAccuracyChartContainer');
+            if (materiaChartContainer) materiaChartContainer.classList.toggle('hidden', !displaySettings.showMateriaAccuracyChart);
+            if (displaySettings.showMateriaAccuracyChart) {
+                materiaChart = new Chart(materiaCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: materiaAccuracy.map(m => m.name.toUpperCase()),
+                        datasets: [{
+                            label: 'Precisão (%)',
+                            data: materiaAccuracy.map(m => m.accuracy),
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Precisão por Matéria',
+                                font: { size: 18 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Precisão (%)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            // Assunto Accuracy Bar Chart
+            const assuntoCtx = document.getElementById('assuntoAccuracyChart');
+            if (!assuntoCtx) { // Added null check for canvas context
+                if (assuntoChart) assuntoChart.destroy();
+                const container = document.getElementById('assuntoAccuracyChartContainer');
+                if (container) container.classList.add('hidden'); // Hide container if canvas not found
+                return;
+            }
+            if (assuntoChart) assuntoChart.destroy();
+            const assuntoChartContainer = document.getElementById('assuntoAccuracyChartContainer');
+            if (assuntoChartContainer) assuntoChartContainer.classList.toggle('hidden', !displaySettings.showAssuntoAccuracyChart);
+            if (displaySettings.showAssuntoAccuracyChart) {
+                assuntoChart = new Chart(assuntoCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: assuntoAccuracy.map(a => a.name.toUpperCase()),
+                        datasets: [{
+                            label: 'Precisão (%)',
+                            data: assuntoAccuracy.map(a => a.accuracy),
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Precisão por Assunto',
+                                font: { size: 18 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Precisão (%)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            // Comparison Trend Chart (formerly Assunto Trend Chart)
+            const trendCtx = document.getElementById('assuntoTrendChart');
+            if (!trendCtx) { // Added null check for canvas context
+                if (comparisonTrendChart) comparisonTrendChart.destroy();
+                const container = document.getElementById('assuntoTrendChartContainer');
+                if (container) container.classList.add('hidden'); // Hide container if canvas not found
+                return;
+            }
+            if (comparisonTrendChart) comparisonTrendChart.destroy();
+            const trendChartContainer = document.getElementById('assuntoTrendChartContainer');
+            if (trendChartContainer) trendChartContainer.classList.toggle('hidden', !displaySettings.showTrendChart);
+
+            if (displaySettings.showTrendChart) {
+                let trendLabels = [];
+                let trendDatasets = [];
+                let trendChartTitle = 'Evolução da Precisão';
+
+                const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9900', '#C9CBCF', '#A3E635', '#F87171', '#60A5FA'];
+
+                let recordsForTrendAggregation = recordsForMainFilters; // Start with records filtered by main filters
+
+                if (comparisonSettings.type === 'materia' && comparisonSettings.items.length > 0) {
+                    trendChartTitle = 'Evolução da Precisão por Matéria (Comparativo)';
+                    // Filter records for trend aggregation based on selected comparison items
+                    recordsForTrendAggregation = recordsForMainFilters.filter(record =>
+                        comparisonSettings.items.includes(record.materia.toLowerCase())
+                    );
+                } else if (comparisonSettings.type === 'assunto' && comparisonSettings.items.length > 0) {
+                    trendChartTitle = 'Evolução da Precisão por Assunto (Comparativo)';
+                    // Filter records for trend aggregation based on selected comparison items
+                    recordsForTrendAggregation = recordsForMainFilters.filter(record =>
+                        comparisonSettings.items.includes(record.assunto.toLowerCase())
+                    );
+                } else {
+                    // Default trend: use recordsForMainFilters for aggregation
+                    // The grouping key will determine if it's overall, by materia, or by assunto
+                    if (filterAssunto !== 'todos') {
+                        // Single assunto trend (already handled by recordsForMainFilters)
+                        trendChartTitle = `Evolução da Precisão em ${filterAssunto.toUpperCase()}`;
+                    } else if (filterMateria !== 'todos') {
+                        // Trends for assuntos within a materia (already handled by recordsForMainFilters)
+                        trendChartTitle = `Evolução da Precisão por Assunto em ${filterMateria.toUpperCase()}`;
+                    } else {
+                        // Trends for all materias (already handled by recordsForMainFilters)
+                        trendChartTitle = `Evolução da Precisão por Matéria`;
+                    }
+                }
+
+                // Aggregate data based on groupingKey for the trend chart
+                const aggregatedTrendData = {}; // { 'category': { 'date': { feita: X, acertada: Y } } }
+
+                recordsForTrendAggregation.forEach(record => {
+                    let category = '';
+                    if (comparisonSettings.type === 'materia' || (comparisonSettings.type === 'none' && filterAssunto === 'todos' && filterMateria === 'todos')) {
+                        category = record.materia.toLowerCase();
+                    } else if (comparisonSettings.type === 'assunto' || (comparisonSettings.type === 'none' && filterMateria !== 'todos' && filterAssunto === 'todos')) {
+                        category = record.assunto.toLowerCase();
+                    } else { // comparisonSettings.type === 'none' && filterAssunto !== 'todos'
+                        category = 'único'; // For single-assunto trend
+                    }
+
+                    if (!aggregatedTrendData[category]) {
+                        aggregatedTrendData[category] = {};
+                    }
+                    if (!aggregatedTrendData[category][record.data]) {
+                        aggregatedTrendData[category][record.data] = { feita: 0, acertada: 0 };
+                    }
+                    aggregatedTrendData[category][record.data].feita += record.quantidadeFeita;
+                    aggregatedTrendData[category][record.data].acertada += record.quantidadeAcertada;
+                });
+
+                // Generate labels (all unique dates across all relevant records)
+                const allDates = new Set();
+                Object.values(aggregatedTrendData).forEach(categoryData => {
+                    Object.keys(categoryData).forEach(date => allDates.add(date));
+                });
+                trendLabels = Array.from(allDates).sort();
+
+                // Generate datasets
+                let colorIndex = 0;
+                Object.keys(aggregatedTrendData).forEach(category => {
+                    const categoryData = aggregatedTrendData[category];
+                    const dataPoints = trendLabels.map(date => {
+                        const data = categoryData[date];
+                        return data ? (data.acertada / data.feita) * 100 : null;
+                    });
+
+                    trendDatasets.push({
+                        label: category.toUpperCase(),
+                        data: dataPoints,
+                        borderColor: colors[colorIndex % colors.length],
+                        backgroundColor: colors[colorIndex % colors.length] + '33',
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: true
+                    });
+                    colorIndex++;
+                });
+
+                if (trendDatasets.length > 0) {
+                    comparisonTrendChart = new Chart(trendCtx.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: trendLabels,
+                            datasets: trendDatasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: trendChartTitle,
+                                    font: { size: 18 }
+                                },
+                                annotation: { // Add annotation plugin for the target line
+                                    annotations: {
+                                        line1: {
+                                            type: 'line',
+                                            yMin: currentAccuracyThreshold,
+                                            yMax: currentAccuracyThreshold,
+                                            borderColor: 'rgb(255, 99, 132)',
+                                            borderWidth: 2,
+                                            borderDash: [5, 5],
+                                            label: {
+                                                display: true,
+                                                content: `Meta: ${currentAccuracyThreshold}%`,
+                                                position: 'end'
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: {
+                                        display: true,
+                                        text: 'Precisão (%)'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Data'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        };
+
+        // Function to populate the records table
+        const populateRecordsTable = (records) => {
+            const tableBody = document.getElementById('records-table-body');
+            if (!tableBody) return; // Added null check
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            records.forEach(record => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = record.materia;
+                row.insertCell().textContent = record.assunto;
+                row.insertCell().textContent = record.data;
+                row.insertCell().textContent = record.quantidadeFeita;
+                row.insertCell().textContent = record.quantidadeAcertada;
+
+                const actionsCell = row.insertCell();
+                const editButton = document.createElement('button');
+                editButton.textContent = 'Editar';
+                editButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600', 'text-white', 'font-bold', 'py-1', 'px-2', 'rounded-md', 'mr-2', 'text-sm');
+                editButton.onclick = () => openEditModal(record);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Excluir';
+                deleteButton.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white', 'font-bold', 'py-1', 'px-2', 'rounded-md', 'text-sm');
+                deleteButton.onclick = () => deleteQuestionRecord(record.id);
+
+                actionsCell.appendChild(editButton);
+                actionsCell.appendChild(deleteButton);
+            });
+        };
+
+        // Function to populate the materia filter dropdown
+        const populateMateriaFilter = (records) => {
+            const materiaFilter = document.getElementById('materia-filter');
+            if (!materiaFilter) return; // Added null check
+            const uniqueMaterias = new Set(records.map(record => record.materia.toLowerCase()));
+
+            // Clear existing options except "Todos"
+            materiaFilter.innerHTML = '<option value="todos">Todas as Matérias</option>';
+
+            uniqueMaterias.forEach(materia => {
+                const option = document.createElement('option');
+                option.value = materia;
+                option.textContent = materia.toUpperCase();
+                materiaFilter.appendChild(option);
+            });
+
+            // Set the current filter value
+            materiaFilter.value = currentFilterMateria;
+        };
+
+        // Function to populate the assunto filter dropdown
+        const populateAssuntoFilter = (records) => {
+            const assuntoFilter = document.getElementById('assunto-filter');
+            if (!assuntoFilter) return; // Added null check
+            // Filter records based on current materia selection
+            let recordsForAssuntoFilter = records;
+            if (currentFilterMateria !== 'todos') {
+                recordsForAssuntoFilter = records.filter(record => record.materia.toLowerCase() === currentFilterMateria.toLowerCase());
+            }
+
+            const uniqueAssuntos = new Set(recordsForAssuntoFilter.map(record => record.assunto.toLowerCase()));
+
+            // Clear existing options except "Todos"
+            assuntoFilter.innerHTML = '<option value="todos">Todos os Assuntos</option>';
+
+            uniqueAssuntos.forEach(assunto => {
+                const option = document.createElement('option');
+                option.value = assunto;
+                option.textContent = assunto.toUpperCase();
+                assuntoFilter.appendChild(option);
+            });
+
+            // Set the current filter value
+            assuntoFilter.value = currentFilterAssunto;
+        };
+
+        // Function to populate datalists for materia and assunto suggestions
+        const populateDatalists = (records) => {
+            const materiaDatalist = document.getElementById('materias-datalist');
+            const assuntoDatalist = document.getElementById('assuntos-datalist');
+
+            if (!materiaDatalist || !assuntoDatalist) return; // Added null check
+
+            // Clear existing options
+            materiaDatalist.innerHTML = '';
+            assuntoDatalist.innerHTML = '';
+
+            const uniqueMaterias = new Set(records.map(record => record.materia));
+            const uniqueAssuntos = new Set(records.map(record => record.assunto));
+
+            uniqueMaterias.forEach(materia => {
+                const option = document.createElement('option');
+                option.value = materia;
+                materiaDatalist.appendChild(option);
+            });
+
+            uniqueAssuntos.forEach(assunto => {
+                const option = document.createElement('option');
+                option.value = assunto;
+                assuntoDatalist.appendChild(option);
+            });
+        };
+
+        // Function to populate the selection buttons for comparison
+        const populateComparisonSelectionButtons = () => {
+            const comparisonButtonsContainer = document.getElementById('comparison-buttons-container');
+            if (!comparisonButtonsContainer) return; // Added null check
+
+            comparisonButtonsContainer.innerHTML = ''; // Clear previous buttons
+
+            let itemsToPopulate = [];
+            if (comparisonSettings.type === 'materia') {
+                itemsToPopulate = Array.from(new Set(currentRecords.map(record => record.materia)));
+            } else if (comparisonSettings.type === 'assunto') {
+                itemsToPopulate = Array.from(new Set(currentRecords.map(record => record.assunto)));
+            }
+
+            itemsToPopulate.sort((a, b) => a.localeCompare(b)).forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.value = item.toLowerCase();
+                button.textContent = item.toUpperCase();
+                // Replaced @apply with direct Tailwind classes
+                button.classList.add('px-4', 'py-2', 'rounded-full', 'border', 'text-sm', 'font-medium', 'transition-colors', 'duration-200');
+
+                if (comparisonSettings.items.includes(item.toLowerCase())) {
+                    button.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+                } else {
+                    button.classList.add('bg-gray-200', 'text-gray-800', 'border-gray-300', 'hover:bg-gray-300');
+                }
+
+                button.addEventListener('click', () => {
+                    const value = button.value;
+                    const index = comparisonSettings.items.indexOf(value);
+                    if (index > -1) {
+                        comparisonSettings.items.splice(index, 1); // Remove if already selected
+                    } else {
+                        comparisonSettings.items.push(value); // Add if not selected
+                    }
+                    saveComparisonSettings();
+                    populateComparisonSelectionButtons(); // Re-render buttons to update state
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate); // Update chart
+                });
+                comparisonButtonsContainer.appendChild(button);
+            });
+        };
+
+        // Function to update visibility of comparison selection buttons
+        const updateComparisonOptionsVisibility = () => {
+            const comparisonButtonsContainer = document.getElementById('comparison-buttons-container');
+            if (comparisonButtonsContainer) { // Added null check
+                if (comparisonSettings.type === 'none') {
+                    comparisonButtonsContainer.classList.add('hidden');
+                } else {
+                    comparisonButtonsContainer.classList.remove('hidden');
+                    populateComparisonSelectionButtons(); // Call this here to ensure buttons are populated if type changes
+                }
+            }
+        };
+
+        // Function to export data to CSV
+        const exportToCsv = (isAutomaticBackup = false) => { // Added parameter to differentiate manual/automatic
+            if (currentRecords.length === 0) {
+                if (!isAutomaticBackup) { // Only show message for manual export if no data
+                    showMessage('Não há dados para exportar.', 'warning');
+                }
+                return;
+            }
+
+            const headers = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada'];
+            const rows = currentRecords.map(record => [
+                record.materia,
+                record.assunto,
+                record.data,
+                record.quantidadeFeita,
+                record.quantidadeAcertada
+            ]);
+
+            let csvContent = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csvContent += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            if (link.download !== undefined) { // Feature detection for download attribute
+                const url = URL.createObjectURL(blob);
+                // For automatic backup, use a timestamp in the filename
+                const filename = isAutomaticBackup ? `backup_questoes_${new Date().toISOString().slice(0,10)}.csv` : 'registros_questoes.csv';
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                if (!isAutomaticBackup) { // Only show message for manual export
+                    showMessage('Dados exportados para CSV com sucesso!', 'success');
+                }
+            } else {
+                showMessage('Seu navegador não suporta a exportação direta para CSV.', 'error');
+            }
+            if (document.body.contains(link)) { // Check if link is still in DOM before removal
+                document.body.removeChild(link);
+            }
+        };
+
+        // Function to import data from CSV
+        const importFromCsv = (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(line => line.trim() !== '');
+                if (lines.length === 0) {
+                    showMessage('O arquivo CSV está vazio ou ilegível.', 'warning');
+                    return;
+                }
+
+                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+                const expectedHeaders = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada'];
+
+                if (headers.length !== expectedHeaders.length || !expectedHeaders.every(h => headers.includes(h))) {
+                    showMessage('Cabeçalhos CSV inválidos. Certifique-se de que o arquivo contém: Matéria,Assunto,Data,Quantidade Feita,Quantidade Acertada', 'error');
+                    return;
+                }
+
+                let importedRecords = [];
+                let successCount = 0;
+                let errorCount = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                    if (values.length !== headers.length) {
+                        console.warn(`Linha ignorada devido a formato incorreto: ${lines[i]}`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const record = {};
+                    headers.forEach((header, index) => {
+                        record[header.replace(/\s/g, '')] = values[index];
+                    });
+
+                    const quantidadeFeita = parseInt(record.QuantidadeFeita);
+                    const quantidadeAcertada = parseInt(record.QuantidadeAcertada);
+
+                    if (isNaN(quantidadeFeita) || isNaN(quantidadeAcertada) || quantidadeAcertada > quantidadeFeita) {
+                        console.warn(`Linha ignorada devido a dados numéricos inválidos ou inconsistentes: ${lines[i]}`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    importedRecords.push({
+                        id: Date.now().toString() + '-' + i, // Generate unique ID for imported records
+                        materia: record.Matéria,
+                        assunto: record.Assunto,
+                        data: record.Data,
+                        quantidadeFeita: quantidadeFeita,
+                        quantidadeAcertada: quantidadeAcertada,
+                        timestamp: new Date().toISOString()
+                    });
+                    successCount++;
+                }
+
+                if (importedRecords.length === 0 && errorCount > 0) {
+                    showMessage(`Importação concluída: ${successCount} registros adicionados, ${errorCount} erros.`, 'warning');
+                    return;
+                } else if (importedRecords.length === 0) {
+                    showMessage('Nenhum registro válido encontrado no arquivo CSV para importar.', 'warning');
+                    return;
+                }
+
+                // Append imported records to current records
+                currentRecords = currentRecords.concat(importedRecords);
+                saveRecordsToLocalStorage(); // Persist all new records
+
+                showMessage(`Importação concluída: ${successCount} registros adicionados, ${errorCount} erros.`, 'info');
+                loadQuestionData(); // Reload all data and refresh UI
+            };
+            reader.readAsText(file);
+        };
+
+        // --- Modal for Editing Records ---
+        const editModal = document.getElementById('edit-modal');
+        const editForm = document.getElementById('edit-form');
+        const editRecordId = document.getElementById('edit-record-id');
+        const editMateria = document.getElementById('edit-materia');
+        const editAssunto = document.getElementById('edit-assunto');
+        const editData = document.getElementById('edit-data');
+        const editQuantidadeFeita = document.getElementById('edit-quantidadeFeita');
+        const editQuantidadeAcertada = document.getElementById('edit-quantidadeAcertada');
+        const closeEditModalBtn = document.getElementById('close-edit-modal');
+
+        const openEditModal = (record) => {
+            if (!editModal || !editForm || !editRecordId || !editMateria || !editAssunto || !editData || !editQuantidadeFeita || !editQuantidadeAcertada) return; // Added null checks
+            editRecordId.value = record.id;
+            editMateria.value = record.materia;
+            editAssunto.value = record.assunto;
+            editData.value = record.data;
+            editQuantidadeFeita.value = record.quantidadeFeita;
+            editQuantidadeAcertada.value = record.quantidadeAcertada;
+            editModal.classList.remove('hidden');
+        };
+
+        const closeEditModal = () => {
+            if (editModal) editModal.classList.add('hidden'); // Added null check
+        };
+
+        if (editForm) { // Added null check for event listener setup
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = editRecordId.value;
+                const updatedData = {
+                    materia: editMateria.value.trim(),
+                    assunto: editAssunto.value.trim(),
+                    data: editData.value,
+                    quantidadeFeita: parseInt(editQuantidadeFeita.value),
+                    quantidadeAcertada: parseInt(editQuantidadeAcertada.value)
+                };
+
+                if (updatedData.quantidadeAcertada > updatedData.quantidadeFeita) {
+                    showMessage('Quantidade acertada não pode ser maior que a quantidade feita.', 'warning');
+                    return;
+                }
+
+                updateQuestionRecord(id, updatedData);
+            });
+        }
+        if (closeEditModalBtn) { // Added null check for event listener setup
+            closeEditModalBtn.addEventListener('click', closeEditModal);
+        }
+
+        // --- Custom Confirmation Modal ---
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmationMessage = document.getElementById('confirmation-message');
+        const confirmYesBtn = document.getElementById('confirm-yes');
+        const confirmNoBtn = document.getElementById('confirm-no');
+        let confirmAction = null;
+
+        const showConfirmationModal = (message, onConfirm) => {
+            if (!confirmationModal || !confirmationMessage) return; // Added null checks
+            confirmationMessage.textContent = message;
+            confirmAction = onConfirm;
+            confirmationModal.classList.remove('hidden');
+        };
+
+        const closeConfirmationModal = () => {
+            if (confirmationModal) confirmationModal.classList.add('hidden'); // Added null check
+            confirmAction = null;
+        };
+
+        if (confirmYesBtn) { // Added null check for event listener setup
+            confirmYesBtn.addEventListener('click', () => {
+                if (confirmAction) {
+                    confirmAction();
+                }
+                closeConfirmationModal();
+            });
+        }
+        if (confirmNoBtn) { // Added null check for event listener setup
+            confirmNoBtn.addEventListener('click', closeConfirmationModal);
+        }
+
+        // Function to open the settings modal
+        window.openSettingsModal = () => { // Defined as global
+            const settingsModal = document.getElementById('settings-modal');
+            if (settingsModal) { // Added null check
+                settingsModal.classList.remove('hidden');
+                // Ensure filters are populated when modal opens
+                populateMateriaFilter(currentRecords);
+                populateAssuntoFilter(currentRecords);
+                populateComparisonSelectionButtons(); // Repopulate multi-select for comparison
+            }
+        };
+
+        // Function to close the settings modal
+        window.closeSettingsModal = () => { // Defined as global
+            const settingsModal = document.getElementById('settings-modal');
+            if (settingsModal) { // Added null check
+                settingsModal.classList.add('hidden');
+                // Re-apply filters and display settings after closing modal
+                updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+            }
+        };
+
+
+        // --- Event Listeners and Initial Setup ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadQuestionData(); // Load data on startup
+
+            // Navigation buttons
+            const showRegisterSectionBtn = document.getElementById('show-register-section');
+            const showPerformanceSectionBtn = document.getElementById('show-performance-section');
+            const registroSection = document.getElementById('registro-section');
+            const desempenhoSection = document.getElementById('desempenho-section');
+
+            if (showRegisterSectionBtn && registroSection && desempenhoSection) { // Added null checks
+                showRegisterSectionBtn.addEventListener('click', () => {
+                    registroSection.classList.remove('hidden');
+                    desempenhoSection.classList.add('hidden');
+                });
+            }
+
+            if (showPerformanceSectionBtn && registroSection && desempenhoSection) { // Added null checks
+                showPerformanceSectionBtn.addEventListener('click', () => {
+                    registroSection.classList.add('hidden');
+                    desempenhoSection.classList.remove('hidden');
+                    // Ensure data is loaded and displayed when switching to performance view
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                    populateRecordsTable(currentRecords);
+                });
+            }
+
+            // Form submission for adding new records
+            const questionForm = document.getElementById('question-form');
+            if (questionForm) { // Added null check
+                questionForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const materiaInput = document.getElementById('materia');
+                    const assuntoInput = document.getElementById('assunto');
+                    const dataInput = document.getElementById('data');
+                    const quantidadeFeitaInput = document.getElementById('quantidadeFeita');
+                    const quantidadeAcertadaInput = document.getElementById('quantidadeAcertada');
+
+                    if (!materiaInput || !assuntoInput || !dataInput || !quantidadeFeitaInput || !quantidadeAcertadaInput) {
+                        showMessage('Erro: Um ou mais campos do formulário não foram encontrados.', 'error');
+                        return;
+                    }
+
+                    const materia = materiaInput.value.trim();
+                    const assunto = assuntoInput.value.trim();
+                    const data = dataInput.value;
+                    const quantidadeFeita = parseInt(quantidadeFeitaInput.value);
+                    const quantidadeAcertada = parseInt(quantidadeAcertadaInput.value);
+
+                    // Basic validation
+                    if (!materia || !assunto || !data || isNaN(quantidadeFeita) || isNaN(quantidadeAcertada)) {
+                        showMessage('Por favor, preencha todos os campos corretamente.', 'warning');
+                        return;
+                    }
+
+                    if (quantidadeAcertada > quantidadeFeita) {
+                        showMessage('Quantidade acertada não pode ser maior que a quantidade feita.', 'warning');
+                        return;
+                    }
+
+                    const newRecord = {
+                        materia: materia,
+                        assunto: assunto,
+                        data: data, // Store as string 'YYYY-MM-DD'
+                        quantidadeFeita: quantidadeFeita,
+                        quantidadeAcertada: quantidadeAcertada,
+                        timestamp: new Date().toISOString() // For ordering if needed
+                    };
+
+                    addQuestionRecord(newRecord);
+                    questionForm.reset(); // Clear the form
+                });
+            }
+
+            // Filter by Materia event listener (inside settings modal) - REAL-TIME UPDATE
+            const materiaFilter = document.getElementById('materia-filter');
+            if (materiaFilter) { // Added null check
+                materiaFilter.addEventListener('change', (e) => {
+                    currentFilterMateria = e.target.value;
+                    currentFilterAssunto = 'todos'; // Reset assunto filter when materia filter changes
+                    const assuntoFilter = document.getElementById('assunto-filter');
+                    if (assuntoFilter) assuntoFilter.value = 'todos'; // Visually reset the dropdown
+                    populateAssuntoFilter(currentRecords); // Repopulate assunto filter based on new materia
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+
+            // Filter by Assunto event listener (inside settings modal) - REAL-TIME UPDATE
+            const assuntoFilter = document.getElementById('assunto-filter');
+            if (assuntoFilter) { // Added null check
+                assuntoFilter.addEventListener('change', (e) => {
+                    currentFilterAssunto = e.target.value;
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+
+            // Date filter event listeners
+            const startDateFilter = document.getElementById('start-date-filter');
+            const endDateFilter = document.getElementById('end-date-filter');
+            const resetDateFilterBtn = document.getElementById('reset-date-filter');
+
+            if (startDateFilter) {
+                startDateFilter.addEventListener('change', (e) => {
+                    currentStartDate = e.target.value;
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+            if (endDateFilter) {
+                endDateFilter.addEventListener('change', (e) => {
+                    currentEndDate = e.target.value;
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+            if (resetDateFilterBtn && startDateFilter && endDateFilter) { // Added null checks
+                resetDateFilterBtn.addEventListener('click', () => {
+                    currentStartDate = '';
+                    currentEndDate = '';
+                    startDateFilter.value = '';
+                    endDateFilter.value = '';
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+
+            // Accuracy Threshold event listener
+            const accuracyThresholdInput = document.getElementById('accuracy-threshold-input');
+            if (accuracyThresholdInput) { // Added null check
+                accuracyThresholdInput.addEventListener('input', (e) => {
+                    let value = parseInt(e.target.value);
+                    if (isNaN(value) || value < 0) value = 0;
+                    if (value > 100) value = 100;
+                    currentAccuracyThreshold = value;
+                    e.target.value = value; // Ensure input reflects clamped value
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            }
+
+
+            // Export CSV button listener
+            const exportCsvBtn = document.getElementById('export-csv-button');
+            if (exportCsvBtn) { // Added null check
+                exportCsvBtn.addEventListener('click', () => exportToCsv(false)); // Manual export
+            }
+
+            // Import CSV button listener
+            const importCsvBtn = document.getElementById('import-csv-button');
+            const csvFileInput = document.getElementById('csv-file-input');
+            if (importCsvBtn && csvFileInput) { // Added null checks
+                importCsvBtn.addEventListener('click', () => {
+                    csvFileInput.click(); // Trigger hidden file input click
+                });
+                csvFileInput.addEventListener('change', importFromCsv);
+            }
+
+            // Settings Modal control
+            const openSettingsModalBtn = document.getElementById('open-settings-modal');
+            const closeSettingsModalBtn = document.getElementById('close-settings-modal');
+
+            if (openSettingsModalBtn) { // Added null check
+                openSettingsModalBtn.addEventListener('click', openSettingsModal);
+            }
+            if (closeSettingsModalBtn) { // Added null check
+                closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
+            }
+
+            // Event listeners for display settings checkboxes (inside settings modal)
+            document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    displaySettings[e.target.id] = e.target.checked;
+                    saveDisplaySettings(); // Save updated settings
+                    initializeDisplaySettingsCheckboxes(); // Update visual state of checkboxes
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                });
+            });
+
+            // Event listeners for comparison type radios (inside settings modal)
+            document.querySelectorAll('input[name="compare-type"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    comparisonSettings.type = e.target.value;
+                    comparisonSettings.items = []; // Clear selected items when type changes
+                    saveComparisonSettings();
+                    updateComparisonOptionsVisibility();
+                    // populateComparisonSelectionButtons() is called inside updateComparisonOptionsVisibility
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate); // Real-time update
+                });
+            });
+
+
+            // Initially show the registration section
+            if (registroSection && desempenhoSection) { // Added null checks
+                registroSection.classList.remove('hidden');
+                desempenhoSection.classList.add('hidden');
+            }
+        });
+    </script>
+    <style>
+        /* Custom styles for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 1rem; /* Rounded corners */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+        }
+        .form-input, .form-button, .filter-select {
+            border-radius: 0.5rem; /* Rounded corners for inputs/buttons */
+        }
+        .form-button {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .form-button:hover {
+            transform: translateY(-2px);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px; /* Fixed height for charts */
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 700px; /* Wider for more options */
+            position: relative;
+            max-height: 90vh; /* Limit modal height */
+            overflow-y: auto; /* Enable scrolling if content overflows */
+        }
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        /* Styles for interactive selection buttons (cards/tags) */
+        .comparison-item-button {
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border-width: 1px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition-property: color, background-color, border-color, transform;
+            transition-duration: 200ms;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .comparison-item-button.selected {
+            background-color: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+        .comparison-item-button.selected:hover {
+            background-color: #1d4ed8;
+        }
+        .comparison-item-button:not(.selected) {
+            background-color: #e5e7eb;
+            color: #374151;
+            border-color: #d1d5db;
+        }
+        .comparison-item-button:not(.selected):hover {
+            background-color: #d1d5db;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg rounded-b-xl">
+        <div class="container flex justify-between items-center">
+            <h1 class="text-3xl font-bold">Registro e Desempenho de Questões</h1>
+            <div class="flex items-center space-x-4">
+                <button id="show-register-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Registrar Questões
+                </button>
+                <button id="show-performance-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Ver Desempenho
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow container py-8">
+        <div id="status-message" class="hidden p-4 mb-4 text-sm rounded-lg" role="alert"></div>
+
+        <!-- Seção de Registro de Questões -->
+        <div id="registro-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 card">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Registrar Nova Questão</h2>
+                <form id="question-form" class="space-y-4">
+                    <div>
+                        <label for="materia" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
+                        <input type="text" id="materia" name="materia" required list="materias-datalist"
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <datalist id="materias-datalist"></datalist>
+                    </div>
+                    <div>
+                        <label for="assunto" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
+                        <input type="text" id="assunto" name="assunto" required list="assuntos-datalist"
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <datalist id="assuntos-datalist"></datalist>
+                    </div>
+                    <div>
+                        <label for="data" class="block text-sm font-medium text-gray-700 mb-1">Data:</label>
+                        <input type="date" id="data" name="data" required
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
+                        <input type="number" id="quantidadeFeita" name="quantidadeFeita" min="0" required
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
+                        <input type="number" id="quantidadeAcertada" name="quantidadeAcertada" min="0" required
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    <button type="submit"
+                            class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Registrar
+                    </button>
+                </form>
+            </div>
+            <div class="lg:col-span-2 card">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Registros Recentes</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-md">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                <th class="py-3 px-6 text-left">Matéria</th>
+                                <th class="py-3 px-6 text-left">Assunto</th>
+                                <th class="py-3 px-6 text-left">Data</th>
+                                <th class="py-3 px-6 text-left">Feitas</th>
+                                <th class="py-3 px-6 text-left">Acertadas</th>
+                                <th class="py-3 px-6 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-table-body" class="text-gray-700 text-sm font-light">
+                            <!-- Records will be populated here by JS -->
+                            <tr><td colspan="6" class="py-3 px-6 text-center">Nenhum registro para exibir.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Desempenho e Gráficos -->
+        <div id="desempenho-section" class="hidden lg:col-span-2 card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800">Seu Desempenho</h2>
+                <button id="open-settings-modal" class="form-button bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Configurações
+                </button>
+            </div>
+
+            <div id="performance-summary" class="mb-8">
+                <!-- Performance summary will be injected here by JS -->
+                <p class="text-gray-600">Carregando dados de desempenho...</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="chart-container lg:col-span-1" id="overallAccuracyChartContainer">
+                    <canvas id="overallAccuracyChart"></canvas>
+                </div>
+                <div class="chart-container lg:col-span-1" id="materiaAccuracyChartContainer">
+                    <canvas id="materiaAccuracyChart"></canvas>
+                </div>
+                <div class="chart-container lg:col-span-1" id="assuntoAccuracyChartContainer">
+                    <canvas id="assuntoAccuracyChart"></canvas>
+                </div>
+                <div class="chart-container lg:col-span-3" id="assuntoTrendChartContainer"> <!-- New chart for trend -->
+                    <canvas id="assuntoTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 text-center text-sm rounded-t-xl mt-8">
+        <div class="container">
+            © 2025 Registro de Questões. Todos os direitos reservados.
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="close-settings-modal" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Configurações de Desempenho</h2>
+
+            <!-- Exportação e Importação (Primeiro) -->
+            <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Exportar / Importar Dados</h3>
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 justify-end">
+                    <button id="export-csv-button" class="form-button bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Exportar para CSV
+                    </button>
+                    <button id="import-csv-button" class="form-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Importar CSV
+                    </button>
+                    <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Opções de Filtro -->
+            <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Filtros de Dados</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="materia-filter" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
+                        <select id="materia-filter" class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="todos">Todas as Matérias</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="assunto-filter" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
+                        <select id="assunto-filter" class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="todos">Todos os Assuntos</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 col-span-full">
+                        <label class="block text-sm font-medium text-gray-700 mb-1 col-span-full">Filtrar por Data:</label>
+                        <input type="date" id="start-date-filter" class="form-input px-2 py-1 border border-gray-300 rounded-md text-sm w-full">
+                        <input type="date" id="end-date-filter" class="form-input px-2 py-1 border border-gray-300 rounded-md text-sm w-full">
+                        <button id="reset-date-filter" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-2 rounded-md text-sm w-full">
+                            Limpar Filtro de Data
+                        </button>
+                    </div>
+                    <div class="col-span-full">
+                        <label for="accuracy-threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Limite de Precisão para Melhorar (%):</label>
+                        <input type="number" id="accuracy-threshold-input" value="70" min="0" max="100"
+                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Opções de Visualização (Melhorado o visual) -->
+            <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Opções de Visualização</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="display-options-container">
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showOverallSummary" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Resumo Geral</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showOverallAccuracyChart" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Gráfico Geral de Precisão</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showMateriaAccuracyChart" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Gráfico de Precisão por Matéria</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showAssuntoAccuracyChart" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Gráfico de Precisão por Assunto</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showTrendChart" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Gráfico de Evolução (Tendência)</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showImprovementAreas" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Áreas para Melhorar</span>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                        <input type="checkbox" id="showAssuntoRevisions" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                        <span class="ml-3 text-gray-800 font-medium">Revisões por Assunto (Matéria Filtrada)</span>
+                    </label>
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Opções de Comparação (para Gráfico de Evolução - Aprimorado) -->
+            <div class="p-4 border border-gray-200 rounded-lg shadow-sm">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Comparar Evolução (Gráfico de Tendência)</h3>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="compare-type" value="none" class="form-radio h-4 w-4 text-blue-600" checked>
+                        <span class="ml-2 text-gray-700">Nenhuma Comparação</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="compare-type" value="materia" class="form-radio h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-gray-700">Comparar Matérias</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="compare-type" value="assunto" class="form-radio h-4 w-4 text-blue-600">
+                        <span class="ml-2 text-gray-700">Comparar Assuntos</span>
+                    </label>
+                </div>
+
+                <div id="comparison-buttons-container" class="flex flex-wrap gap-2 hidden">
+                    <!-- Comparison selection buttons will be populated here by JS -->
+                </div>
+
+                <div class="mt-4 p-3 bg-yellow-50 rounded-lg text-yellow-800 text-sm">
+                    <p class="font-semibold mb-1">Dica de Comparação:</p>
+                    <p>Selecione os itens acima para ver a evolução da precisão de cada um no gráfico de tendência. Você pode sobrepor a meta de acertos (linha pontilhada) no gráfico de evolução para ver se está atingindo seus objetivos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Record Modal -->
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="close-edit-modal" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Editar Registro</h2>
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-record-id">
+                <div>
+                    <label for="edit-materia" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
+                    <input type="text" id="edit-materia" name="materia" required
+                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="edit-assunto" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
+                    <input type="text" id="edit-assunto" name="assunto" required
+                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="edit-data" class="block text-sm font-medium text-gray-700 mb-1">Data:</label>
+                    <input type="date" id="edit-data" name="data" required
+                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="edit-quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
+                    <input type="number" id="edit-quantidadeFeita" name="quantidadeFeita" min="0" required
+                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="edit-quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
+                    <input type="number" id="edit-quantidadeAcertada" name="quantidadeAcertada" min="0" required
+                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                        class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <p id="confirmation-message" class="text-lg mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirm-yes" class="form-button bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Sim
+                </button>
+                <button id="confirm-no" class="form-button bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md">
+                    Não
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 text-center text-sm rounded-t-xl mt-8">
+        <div class="container">
+            © 2025 Registro de Questões. Todos os direitos reservados.
+        </div>
+    </footer>
+</body>
+</html>
