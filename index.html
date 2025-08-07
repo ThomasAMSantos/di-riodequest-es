@@ -19,9 +19,9 @@
         let currentStartDate = ''; // Current filter for start date
         let currentEndDate = ''; // Current filter for end date
         let currentAccuracyThreshold = 70; // User-defined accuracy threshold for improvement areas
-
-        // Default revision intervals, can be modified by the user
-        let revisionIntervals = [
+        
+        // Default values for revision intervals - used for reset
+        const defaultRevisionIntervals = [
             { minAccuracy: 0, maxAccuracy: 30, minDays: 1, maxDays: 3 },
             { minAccuracy: 30, maxAccuracy: 50, minDays: 3, maxDays: 7 },
             { minAccuracy: 50, maxAccuracy: 60, minDays: 7, maxDays: 15 },
@@ -30,6 +30,9 @@
             { minAccuracy: 80, maxAccuracy: 90, minDays: 60, maxDays: 90 },
             { minAccuracy: 90, maxAccuracy: 100, minDays: 90, maxDays: 120 }
         ];
+
+        // Revision intervals, can be modified by the user
+        let revisionIntervals = [...defaultRevisionIntervals];
 
         // Display settings, stored in localStorage
         let displaySettings = {
@@ -316,14 +319,20 @@
 
             // Find the appropriate interval based on cumulative accuracy
             let interval = revisionIntervals.find(i => cumulativeAccuracy >= i.minAccuracy && cumulativeAccuracy <= i.maxAccuracy);
+            let defaultInterval = defaultRevisionIntervals.find(i => i.minAccuracy === interval.minAccuracy && i.maxAccuracy === interval.maxAccuracy);
+
 
             if (interval) {
-                // Generate a random number of days within the interval
-                const randomDays = Math.floor(Math.random() * (interval.maxDays - interval.minDays + 1)) + interval.minDays;
+                // Check if the current interval is the same as the default. If so, use minDays to avoid randomization.
+                if (JSON.stringify(interval) === JSON.stringify(defaultInterval)) {
+                    revisionDays = interval.minDays;
+                } else {
+                    // Generate a random number of days within the interval
+                    revisionDays = Math.floor(Math.random() * (interval.maxDays - interval.minDays + 1)) + interval.minDays;
+                }
                 
                 nextRevisionDate = new Date(lastReviewDate);
-                nextRevisionDate.setDate(lastReviewDate.getDate() + randomDays);
-                revisionDays = randomDays;
+                nextRevisionDate.setDate(lastReviewDate.getDate() + revisionDays);
             } else {
                 // Default to a small interval if no match is found
                 nextRevisionDate = new Date(lastReviewDate);
@@ -596,34 +605,6 @@
                         <p class="text-lg text-blue-800">Número de Revisões: <span class="font-bold">${recordsForDisplay.length}</span></p>
                     </div>
                 `;
-            }
-
-            if (displaySettings.showAssuntoRevisions && filterMateria !== 'todos' && filterAssunto === 'todos') {
-                const revisionsByAssunto = {};
-                recordsForDisplay.forEach(record => {
-                    const assunto = record.assunto.toLowerCase();
-                    if (!revisionsByAssunto[assunto]) {
-                        revisionsByAssunto[assunto] = { count: 0, feita: 0, acertada: 0 };
-                    }
-                    revisionsByAssunto[assunto].count++;
-                    revisionsByAssunto[assunto].feita += record.quantidadeFeita;
-                    revisionsByAssunto[assunto].acertada += record.quantidadeAcertada;
-                });
-
-                let assuntoRevisionsHtml = `
-                    <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
-                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Revisões por Assunto em ${filterMateria.toUpperCase()}</h3>
-                        <ul class="list-disc list-inside text-gray-800">
-                `;
-                Object.entries(revisionsByAssunto).sort((a, b) => b[1].count - a[1].count).forEach(([assunto, data]) => {
-                    const accuracy = data.feita > 0 ? (data.acertada / data.feita) * 100 : 0;
-                    assuntoRevisionsHtml += `<li>${assunto.toUpperCase()}: ${data.count} revisões (${data.feita} questões, ${data.acertada} acertos, ${accuracy.toFixed(2)}% precisão)</li>`;
-                });
-                assuntoRevisionsHtml += `
-                        </ul>
-                    </div>
-                `;
-                performanceSummary.innerHTML += assuntoRevisionsHtml;
             }
 
             if (displaySettings.showImprovementAreas && (materiasToImprove.length > 0 || assuntosToImprove.length > 0)) {
@@ -953,14 +934,15 @@
         const populateMateriaFilter = (records) => {
             const materiaFilter = document.getElementById('materia-filter');
             if (!materiaFilter) return;
-            const uniqueMaterias = new Set(records.map(record => record.materia.toLowerCase()));
+            const uniqueMaterias = new Set(records.map(record => record.materia));
+            const sortedMaterias = Array.from(uniqueMaterias).sort((a,b) => a.localeCompare(b));
 
             materiaFilter.innerHTML = '<option value="todos">Todas as Matérias</option>';
 
-            uniqueMaterias.forEach(materia => {
+            sortedMaterias.forEach(materia => {
                 const option = document.createElement('option');
                 option.value = materia;
-                option.textContent = materia.toUpperCase();
+                option.textContent = materia;
                 materiaFilter.appendChild(option);
             });
 
@@ -975,14 +957,15 @@
                 recordsForAssuntoFilter = records.filter(record => record.materia.toLowerCase() === currentFilterMateria.toLowerCase());
             }
 
-            const uniqueAssuntos = new Set(recordsForAssuntoFilter.map(record => record.assunto.toLowerCase()));
+            const uniqueAssuntos = new Set(recordsForAssuntoFilter.map(record => record.assunto));
+            const sortedAssuntos = Array.from(uniqueAssuntos).sort((a,b) => a.localeCompare(b));
 
             assuntoFilter.innerHTML = '<option value="todos">Todos os Assuntos</option>';
 
-            uniqueAssuntos.forEach(assunto => {
+            sortedAssuntos.forEach(assunto => {
                 const option = document.createElement('option');
                 option.value = assunto;
-                option.textContent = assunto.toUpperCase();
+                option.textContent = assunto;
                 assuntoFilter.appendChild(option);
             });
 
@@ -1190,6 +1173,9 @@
             intervalsContainer.innerHTML = '';
 
             revisionIntervals.forEach((interval, index) => {
+                const defaultInterval = defaultRevisionIntervals[index];
+                let isDefault = interval.minDays === defaultInterval.minDays && interval.maxDays === defaultInterval.maxDays;
+
                 const intervalHtml = `
                     <div class="flex items-center space-x-2 my-2">
                         <span class="w-1/4 text-right text-sm text-gray-600">${interval.minAccuracy}% - ${interval.maxAccuracy}%:</span>
@@ -1197,6 +1183,7 @@
                         <span class="text-sm text-gray-600">-</span>
                         <input type="number" id="max-days-${index}" value="${interval.maxDays}" min="0" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
                         <span class="text-sm text-gray-600">dias</span>
+                        <button onclick="resetRevisionInterval(${index})" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-2 rounded-md text-sm ${isDefault ? 'invisible' : ''}">Reset</button>
                     </div>
                 `;
                 intervalsContainer.innerHTML += intervalHtml;
@@ -1205,6 +1192,33 @@
             intervalsContainer.querySelectorAll('input').forEach(input => {
                 input.addEventListener('change', updateRevisionIntervals);
             });
+        };
+        
+        // Function to reset a single revision interval to its default value
+        window.resetRevisionInterval = (index) => {
+            revisionIntervals[index] = { ...defaultRevisionIntervals[index] };
+            saveRevisionIntervals();
+            populateRevisionIntervals(); // Refresh the UI
+            // Re-calculate all revisions based on the new intervals
+            const uniqueSubjects = new Set(currentRecords.map(r => `${r.materia}|${r.assunto}`));
+            uniqueSubjects.forEach(subject => {
+                const [materia, assunto] = subject.split('|');
+                updateRevisionSchedule(materia, assunto);
+            });
+            showMessage('Intervalo de revisão restaurado para o padrão!', 'success');
+        };
+
+        // Function to reset all revision intervals to their default values
+        window.resetAllRevisionIntervals = () => {
+            revisionIntervals = [...defaultRevisionIntervals];
+            saveRevisionIntervals();
+            populateRevisionIntervals();
+            const uniqueSubjects = new Set(currentRecords.map(r => `${r.materia}|${r.assunto}`));
+            uniqueSubjects.forEach(subject => {
+                const [materia, assunto] = subject.split('|');
+                updateRevisionSchedule(materia, assunto);
+            });
+            showMessage('Todos os intervalos de revisão restaurados para o padrão!', 'success');
         };
 
         const updateRevisionIntervals = () => {
@@ -2032,16 +2046,20 @@
         <div class="modal-content">
             <button id="close-revision-settings" class="close-button">&times;</button>
             <h2 class="text-2xl font-semibold mb-6 text-gray-800">Ajustar Variáveis de Revisão</h2>
-            <div class="p-4 bg-gray-50 rounded-lg mb-4">
+            
+            <div class="flex flex-col space-y-4 mb-6">
+                <p class="text-sm text-gray-600">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos.</p>
+                <div id="revision-intervals-container" class="space-y-2">
+                    <!-- Revision intervals will be populated by JS -->
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 rounded-lg">
                 <h3 class="text-lg font-semibold text-gray-700 mb-2">Como Funciona o Agendamento de Revisões</h3>
                 <p class="text-sm text-gray-600 mb-2">O sistema calcula a próxima data de revisão com base na sua <strong>precisão histórica acumulada</strong> para cada assunto. Dependendo da porcentagem de acertos, um intervalo de dias é escolhido aleatoriamente dentro da faixa que você definir abaixo. Por exemplo, se sua precisão estiver entre 70% e 80%, a próxima revisão será agendada para daqui a 30 a 60 dias.</p>
-                <p class="text-sm text-gray-600 mb-2">Isso ajuda a espaçar as revisões de forma inteligente, focando mais nos assuntos com menor desempenho e reforçando aqueles com bom desempenho em intervalos mais longos.</p>
-                <p class="text-sm text-gray-600"><strong>Recomenda-se realizar pelo menos 15 questões no dia da revisão, para garantir que a análise de desempenho seja representativa e o espaçamento continue adequado.</strong></p>
-
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos.</p>
-            <div class="space-y-4" id="revision-intervals-container">
-                <!-- Revision intervals will be populated by JS -->
+                <p class="text-sm text-gray-600">Isso ajuda a espaçar as revisões de forma inteligente, focando mais nos assuntos com menor desempenho e reforçando aqueles com bom desempenho em intervalos mais longos.</p>
+                <hr class="my-3 border-gray-300">
+                <p class="text-xs text-blue-700 font-medium">📌 Recomenda-se realizar pelo menos 15 questões no dia da revisão, para garantir que a análise de desempenho seja representativa e o espaçamento continue adequado.</p>
             </div>
         </div>
     </div>
