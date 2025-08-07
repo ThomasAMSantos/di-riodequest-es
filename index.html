@@ -13,11 +13,23 @@
     <script type="module">
         // Global variables for data
         let currentRecords = []; // Stores all fetched records
+        let currentRevisions = []; // Stores all scheduled revisions
         let currentFilterMateria = 'todos'; // Current filter for materia
         let currentFilterAssunto = 'todos'; // Current filter for assunto
         let currentStartDate = ''; // Current filter for start date
         let currentEndDate = ''; // Current filter for end date
         let currentAccuracyThreshold = 70; // User-defined accuracy threshold for improvement areas
+
+        // Default revision intervals, can be modified by the user
+        let revisionIntervals = [
+            { minAccuracy: 0, maxAccuracy: 30, minDays: 1, maxDays: 3 },
+            { minAccuracy: 30, maxAccuracy: 50, minDays: 3, maxDays: 7 },
+            { minAccuracy: 50, maxAccuracy: 60, minDays: 7, maxDays: 15 },
+            { minAccuracy: 60, maxAccuracy: 70, minDays: 15, maxDays: 30 },
+            { minAccuracy: 70, maxAccuracy: 80, minDays: 30, maxDays: 60 },
+            { minAccuracy: 80, maxAccuracy: 90, minDays: 60, maxDays: 90 },
+            { minAccuracy: 90, maxAccuracy: 100, minDays: 90, maxDays: 120 }
+        ];
 
         // Display settings, stored in localStorage
         let displaySettings = {
@@ -41,7 +53,7 @@
             const statusMessage = document.getElementById('status-message');
             if (statusMessage) {
                 statusMessage.textContent = message;
-                statusMessage.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
+                statusMessage.className = 'p-4 mb-4 text-sm rounded-lg';
                 if (type === 'success') {
                     statusMessage.classList.add('bg-green-100', 'text-green-800');
                 } else if (type === 'error') {
@@ -69,114 +81,84 @@
             }
         };
 
-        // Function to load question data from localStorage
+        // Function to save current revisions to localStorage
+        const saveRevisionsToLocalStorage = () => {
+            try {
+                localStorage.setItem('scheduledRevisions', JSON.stringify(currentRevisions));
+                console.log("Revisões salvas no localStorage.");
+            } catch (e) {
+                console.error("Erro ao salvar revisões no localStorage:", e);
+            }
+        };
+
+        // Function to save revision intervals to localStorage
+        const saveRevisionIntervals = () => {
+            try {
+                localStorage.setItem('revisionIntervals', JSON.stringify(revisionIntervals));
+                console.log("Intervalos de revisão salvos no localStorage.");
+            } catch (e) {
+                console.error("Erro ao salvar intervalos de revisão:", e);
+            }
+        };
+
+        // Function to load data from localStorage
         const loadQuestionData = () => {
             try {
                 const storedRecords = localStorage.getItem('questionRecords');
                 if (storedRecords) {
                     currentRecords = JSON.parse(storedRecords);
-                    console.log("Dados carregados do localStorage:", currentRecords);
+                    console.log("Dados de registro carregados:", currentRecords);
                 } else {
                     currentRecords = [];
-                    console.log("Nenhum dado encontrado no localStorage. Iniciando com registros vazios.");
+                    console.log("Nenhum registro encontrado.");
                 }
 
-                // Defer initialization to ensure DOM elements are ready
-                setTimeout(() => {
-                    // Load display settings from localStorage
-                    const storedDisplaySettings = localStorage.getItem('displaySettings');
-                    if (storedDisplaySettings) {
-                        displaySettings = { ...displaySettings, ...JSON.parse(storedDisplaySettings) };
-                    }
-                    // Load comparison settings from localStorage
-                    const storedComparisonSettings = localStorage.getItem('comparisonSettings');
-                    if (storedComparisonSettings) {
-                        comparisonSettings = { ...comparisonSettings, ...JSON.parse(storedComparisonSettings) };
-                    }
-
-                    initializeDisplaySettingsCheckboxes(); // Update checkboxes based on loaded settings
-                    initializeComparisonSettings(); // Update comparison UI based on loaded settings
-
-                    // Update UI with filtered data
-                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
-                    populateRecordsTable(currentRecords);
-                    populateMateriaFilter(currentRecords);
-                    populateAssuntoFilter(currentRecords);
-                    populateDatalists(currentRecords);
-
-                    // Show initial backup message if no records exist
-                    if (currentRecords.length === 0) {
-                        showMessage('Bem-vindo! Seus dados serão salvos automaticamente e exportados para CSV a cada alteração. Mantenha os arquivos baixados em segurança para backup.', 'info');
-                    }
-
-                }, 0); // Defer execution
-            } catch (e) {
-                console.error("Erro ao carregar dados do localStorage:", e);
-                showMessage('Erro ao carregar dados de desempenho do armazenamento local.', 'error');
-                currentRecords = []; // Reset if corrupted
-            }
-        };
-
-        // Function to save display settings to localStorage
-        const saveDisplaySettings = () => {
-            try {
-                localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
-            } catch (e) {
-                console.error("Erro ao salvar configurações de exibição:", e);
-            }
-        };
-
-        // Function to save comparison settings to localStorage
-        const saveComparisonSettings = () => {
-            try {
-                localStorage.setItem('comparisonSettings', JSON.stringify(comparisonSettings));
-            } catch (e) {
-                console.error("Erro ao salvar configurações de comparação:", e);
-            }
-        };
-
-        // Function to initialize display settings checkboxes
-        const initializeDisplaySettingsCheckboxes = () => {
-            document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
-                if (checkbox) {
-                    checkbox.checked = displaySettings[checkbox.id];
-                    const parentLabel = checkbox.closest('label');
-                    if (parentLabel) {
-                        parentLabel.classList.toggle('bg-blue-100', checkbox.checked);
-                        parentLabel.classList.toggle('border-blue-400', checkbox.checked);
-                        parentLabel.classList.toggle('bg-gray-50', !checkbox.checked);
-                        parentLabel.classList.toggle('border-gray-300', !checkbox.checked);
-                    }
+                const storedRevisions = localStorage.getItem('scheduledRevisions');
+                if (storedRevisions) {
+                    currentRevisions = JSON.parse(storedRevisions);
+                    console.log("Revisões agendadas carregadas:", currentRevisions);
+                } else {
+                    currentRevisions = [];
+                    console.log("Nenhuma revisão agendada encontrada.");
                 }
-            });
-        };
 
-        // Function to initialize comparison settings UI
-        const initializeComparisonSettings = () => {
-            const compareTypeRadios = document.querySelectorAll('input[name="compare-type"]');
-            compareTypeRadios.forEach(radio => {
-                if (radio.value === comparisonSettings.type) {
-                    radio.checked = true;
+                const storedDisplaySettings = localStorage.getItem('displaySettings');
+                if (storedDisplaySettings) {
+                    displaySettings = { ...displaySettings, ...JSON.parse(storedDisplaySettings) };
                 }
-            });
-            updateComparisonOptionsVisibility(); // Show/hide multi-select based on type
-            populateComparisonSelectionButtons(); // Populate and select items using new buttons
+                
+                const storedComparisonSettings = localStorage.getItem('comparisonSettings');
+                if (storedComparisonSettings) {
+                    comparisonSettings = { ...comparisonSettings, ...JSON.parse(storedComparisonSettings) };
+                }
+
+                const storedRevisionIntervals = localStorage.getItem('revisionIntervals');
+                if (storedRevisionIntervals) {
+                    revisionIntervals = JSON.parse(storedRevisionIntervals);
+                }
+            } catch (e) {
+                console.error("Erro ao carregar dados:", e);
+                showMessage('Erro ao carregar dados.', 'error');
+                currentRecords = [];
+                currentRevisions = [];
+            }
         };
 
         // Function to add a new question record
         const addQuestionRecord = (record) => {
-            // Assign a simple unique ID for local management
             record.id = Date.now().toString();
             currentRecords.push(record);
-            saveRecordsToLocalStorage(); // Persist changes
+            saveRecordsToLocalStorage();
+            updateRevisionSchedule(record.materia, record.assunto);
             showMessage('Registro adicionado com sucesso!', 'success');
             // Refresh UI
             updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
             populateRecordsTable(currentRecords);
+            populateRevisionsTable(currentRevisions);
             populateMateriaFilter(currentRecords);
             populateAssuntoFilter(currentRecords);
             populateDatalists(currentRecords);
-            populateComparisonSelectionButtons(); // Update comparison options
+            populateComparisonSelectionButtons();
         };
 
         // Function to update an existing question record
@@ -184,53 +166,320 @@
             const index = currentRecords.findIndex(record => record.id === recordId);
             if (index !== -1) {
                 currentRecords[index] = { ...currentRecords[index], ...updatedData };
-                saveRecordsToLocalStorage(); // Persist changes
+                saveRecordsToLocalStorage();
+                updateRevisionSchedule(updatedData.materia, updatedData.assunto);
                 showMessage('Registro atualizado com sucesso!', 'success');
                 closeEditModal();
                 // Refresh UI
                 updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 populateRecordsTable(currentRecords);
+                populateRevisionsTable(currentRevisions);
                 populateMateriaFilter(currentRecords);
                 populateAssuntoFilter(currentRecords);
                 populateDatalists(currentRecords);
-                populateComparisonSelectionButtons(); // Update comparison options
+                populateComparisonSelectionButtons();
             } else {
                 showMessage('Registro não encontrado para atualização.', 'error');
             }
         };
-
+        
         // Function to delete a question record
         const deleteQuestionRecord = (recordId) => {
             showConfirmationModal('Tem certeza que deseja excluir este registro?', () => {
-                currentRecords = currentRecords.filter(record => record.id !== recordId);
-                saveRecordsToLocalStorage(); // Persist changes
-                showMessage('Registro excluído com sucesso!', 'success');
-                // Refresh UI
-                updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
-                populateRecordsTable(currentRecords);
-                populateMateriaFilter(currentRecords);
-                populateAssuntoFilter(currentRecords);
-                populateDatalists(currentRecords);
-                populateComparisonSelectionButtons(); // Update comparison options
+                const recordToDelete = currentRecords.find(record => record.id === recordId);
+                if (recordToDelete) {
+                    const { materia, assunto } = recordToDelete;
+                    currentRecords = currentRecords.filter(record => record.id !== recordId);
+                    saveRecordsToLocalStorage();
+                    updateRevisionSchedule(materia, assunto); // Re-calculate revision for the subject
+                    showMessage('Registro excluído com sucesso!', 'success');
+                    // Refresh UI
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+                    populateRecordsTable(currentRecords);
+                    populateRevisionsTable(currentRevisions);
+                    populateMateriaFilter(currentRecords);
+                    populateAssuntoFilter(currentRecords);
+                    populateDatalists(currentRecords);
+                    populateComparisonSelectionButtons();
+                }
             });
+        };
+
+        // Function to handle the "Concluir" button for a revision
+        window.openCompleteRevisionModal = (revisionId) => {
+            const revision = currentRevisions.find(r => r.id === revisionId);
+            if (revision) {
+                const modal = document.getElementById('complete-revision-modal');
+                const form = document.getElementById('complete-revision-form');
+                const subjectSpan = document.getElementById('revision-subject-name');
+                const revisionIdInput = document.getElementById('complete-revision-id');
+                
+                subjectSpan.textContent = `${revision.materia} - ${revision.assunto}`;
+                revisionIdInput.value = revisionId;
+                
+                modal.classList.remove('hidden');
+            }
+        };
+
+        // Function to close the "Concluir" revision modal
+        window.closeCompleteRevisionModal = () => {
+            const modal = document.getElementById('complete-revision-modal');
+            const form = document.getElementById('complete-revision-form');
+            if (modal) {
+                modal.classList.add('hidden');
+                form.reset();
+            }
+        };
+        
+        // Function to submit the "Concluir" revision form
+        window.submitCompleteRevisionForm = (revisionId, quantidadeFeita, quantidadeAcertada) => {
+            const revision = currentRevisions.find(r => r.id === revisionId);
+            if (revision) {
+                const newRecord = {
+                    materia: revision.materia,
+                    assunto: revision.assunto,
+                    data: new Date().toISOString().slice(0, 10), // Use today's date for the new record
+                    quantidadeFeita: quantidadeFeita,
+                    quantidadeAcertada: quantidadeAcertada,
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Add the new record and trigger the full UI refresh
+                addQuestionRecord(newRecord);
+                
+                closeCompleteRevisionModal();
+                showMessage(`Revisão de ${revision.assunto} concluída e registrada!`, 'success');
+            }
+        };
+        
+        // Function to handle the "Reagendar" button for a revision
+        window.openRescheduleRevisionModal = (revisionId) => {
+             const revision = currentRevisions.find(r => r.id === revisionId);
+             if (revision) {
+                 const modal = document.getElementById('reschedule-revision-modal');
+                 const subjectSpan = document.getElementById('reschedule-subject-name');
+                 const revisionIdInput = document.getElementById('reschedule-revision-id');
+                 const dateInput = document.getElementById('reschedule-date');
+
+                 subjectSpan.textContent = `${revision.materia} - ${revision.assunto}`;
+                 revisionIdInput.value = revisionId;
+                 dateInput.value = revision.nextReviewDate; // Pre-fill with the current next review date
+
+                 modal.classList.remove('hidden');
+             }
+        };
+
+        window.closeRescheduleRevisionModal = () => {
+            const modal = document.getElementById('reschedule-revision-modal');
+            const form = document.getElementById('reschedule-form');
+            if (modal) {
+                modal.classList.add('hidden');
+                form.reset();
+            }
+        };
+
+        window.submitRescheduleForm = (revisionId, newDate) => {
+            const revision = currentRevisions.find(r => r.id === revisionId);
+            if (revision) {
+                revision.nextReviewDate = newDate;
+                saveRevisionsToLocalStorage();
+                populateRevisionsTable(currentRevisions);
+                closeRescheduleRevisionModal();
+                showMessage(`Revisão de ${revision.assunto} reagendada para ${newDate}.`, 'info');
+            }
+        };
+
+        // Function to calculate and schedule the next revision
+        const updateRevisionSchedule = (materia, assunto) => {
+            const recordsForSubject = currentRecords.filter(r => r.materia.toLowerCase() === materia.toLowerCase() && r.assunto.toLowerCase() === assunto.toLowerCase());
+            
+            if (recordsForSubject.length === 0) {
+                currentRevisions = currentRevisions.filter(r => !(r.materia.toLowerCase() === materia.toLowerCase() && r.assunto.toLowerCase() === assunto.toLowerCase()));
+                saveRevisionsToLocalStorage();
+                return;
+            }
+
+            // Calculate historical weighted accuracy
+            let totalFeita = 0;
+            let totalAcertada = 0;
+            recordsForSubject.forEach(record => {
+                totalFeita += record.quantidadeFeita;
+                totalAcertada += record.quantidadeAcertada;
+            });
+            const cumulativeAccuracy = totalFeita > 0 ? (totalAcertada / totalFeita) * 100 : 0;
+
+            let nextRevisionDate = null;
+            let revisionDays = 0;
+
+            const now = new Date();
+            const lastReviewDate = new Date(recordsForSubject.sort((a,b) => new Date(b.data) - new Date(a.data))[0].data);
+
+            // Find the appropriate interval based on cumulative accuracy
+            let interval = revisionIntervals.find(i => cumulativeAccuracy >= i.minAccuracy && cumulativeAccuracy <= i.maxAccuracy);
+
+            if (interval) {
+                // Generate a random number of days within the interval
+                const randomDays = Math.floor(Math.random() * (interval.maxDays - interval.minDays + 1)) + interval.minDays;
+                
+                nextRevisionDate = new Date(lastReviewDate);
+                nextRevisionDate.setDate(lastReviewDate.getDate() + randomDays);
+                revisionDays = randomDays;
+            } else {
+                // Default to a small interval if no match is found
+                nextRevisionDate = new Date(lastReviewDate);
+                nextRevisionDate.setDate(lastReviewDate.getDate() + 1);
+                revisionDays = 1;
+            }
+            
+            const existingRevisionIndex = currentRevisions.findIndex(r => r.materia.toLowerCase() === materia.toLowerCase() && r.assunto.toLowerCase() === assunto.toLowerCase());
+
+            const newRevision = {
+                id: materia + '-' + assunto,
+                materia: materia,
+                assunto: assunto,
+                lastReviewDate: lastReviewDate.toISOString().slice(0, 10),
+                nextReviewDate: nextRevisionDate.toISOString().slice(0, 10),
+                cumulativeAccuracy: cumulativeAccuracy,
+                daysInterval: revisionDays
+            };
+            
+            if (existingRevisionIndex !== -1) {
+                currentRevisions[existingRevisionIndex] = newRevision;
+            } else {
+                currentRevisions.push(newRevision);
+            }
+
+            saveRevisionsToLocalStorage();
+            populateRevisionsTable(currentRevisions);
+        };
+        
+        // Function to populate the revisions table
+        const populateRevisionsTable = (revisions) => {
+            const tableBody = document.getElementById('revisions-table-body');
+            const summaryLate = document.getElementById('summary-late');
+            const summaryToday = document.getElementById('summary-today');
+            const summaryUpcoming = document.getElementById('summary-upcoming');
+            const lateRevisionsContainer = document.getElementById('late-revisions-container');
+
+            if (!tableBody || !summaryLate || !summaryToday || !summaryUpcoming || !lateRevisionsContainer) return;
+
+            tableBody.innerHTML = '';
+            lateRevisionsContainer.innerHTML = '';
+
+            const sortedRevisions = [...revisions].sort((a, b) => new Date(a.nextReviewDate) - new Date(b.nextReviewDate));
+
+            let countLate = 0;
+            let countToday = 0;
+            let countUpcoming = 0;
+
+            if (sortedRevisions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="py-3 px-6 text-center">Nenhuma revisão agendada.</td></tr>';
+                lateRevisionsContainer.innerHTML = '<p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>';
+                summaryLate.textContent = 0;
+                summaryToday.textContent = 0;
+                summaryUpcoming.textContent = 0;
+                return;
+            }
+
+            sortedRevisions.forEach(revision => {
+                const row = tableBody.insertRow();
+                const nextReviewDate = new Date(revision.nextReviewDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const timeDiff = nextReviewDate.getTime() - today.getTime();
+                const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                
+                let dateDisplay = revision.nextReviewDate;
+                let daysDisplay = '';
+                let rowClass = 'bg-white hover:bg-gray-50';
+
+                if (daysRemaining < 0) {
+                    dateDisplay = `ATRASADA: ${revision.nextReviewDate}`;
+                    daysDisplay = `${Math.abs(daysRemaining)} dias atrás`;
+                    rowClass = 'bg-red-100 text-red-800 hover:bg-red-200';
+                    countLate++;
+                    
+                    // Create card for late revision
+                    const lateCard = document.createElement('div');
+                    lateCard.className = `card p-4 rounded-lg shadow-sm border border-red-200 bg-red-50 flex flex-col justify-between`;
+                    lateCard.innerHTML = `
+                         <div>
+                            <p class="text-lg font-bold text-red-800">${revision.materia.toUpperCase()}</p>
+                            <p class="text-sm text-red-700">${revision.assunto.toUpperCase()}</p>
+                            <p class="text-xs text-red-600 mt-2">Último acerto: ${revision.cumulativeAccuracy.toFixed(2)}%</p>
+                            <p class="text-xs text-red-600">Revisão: ${Math.abs(daysRemaining)} dias atrás</p>
+                        </div>
+                        <div class="mt-4 flex space-x-2">
+                             <button onclick="openCompleteRevisionModal('${revision.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md text-sm">Concluir</button>
+                             <button onclick="openRescheduleRevisionModal('${revision.id}')" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-sm">Reagendar</button>
+                        </div>
+                    `;
+                    lateRevisionsContainer.appendChild(lateCard);
+
+                } else if (daysRemaining === 0) {
+                    dateDisplay = `HOJE: ${revision.nextReviewDate}`;
+                    daysDisplay = 'Hoje';
+                    rowClass = 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
+                    countToday++;
+                } else {
+                    dateDisplay = `Próxima: ${revision.nextReviewDate}`;
+                    daysDisplay = `${daysRemaining} dias`;
+                    rowClass = 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+                    countUpcoming++;
+                }
+
+                row.className = `text-gray-700 text-sm font-light ${rowClass}`;
+
+                row.insertCell().textContent = revision.materia;
+                row.insertCell().textContent = revision.assunto;
+                row.insertCell().textContent = revision.lastReviewDate;
+                row.insertCell().textContent = dateDisplay;
+                row.insertCell().textContent = `${revision.cumulativeAccuracy.toFixed(2)}%`;
+
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'text-center';
+                const completeButton = document.createElement('button');
+                completeButton.textContent = 'Concluir';
+                completeButton.onclick = () => openCompleteRevisionModal(revision.id);
+                completeButton.classList.add('bg-green-500', 'hover:bg-green-600', 'text-white', 'font-bold', 'py-1', 'px-2', 'rounded-md', 'mr-2', 'text-sm');
+                
+                const rescheduleButton = document.createElement('button');
+                rescheduleButton.textContent = 'Reagendar';
+                rescheduleButton.onclick = () => openRescheduleRevisionModal(revision.id);
+                rescheduleButton.classList.add('bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-bold', 'py-1', 'px-2', 'rounded-md', 'text-sm');
+
+                actionsCell.appendChild(completeButton);
+                actionsCell.appendChild(rescheduleButton);
+
+            });
+            
+            // If no late revisions, show the default message
+            if (countLate === 0) {
+                 lateRevisionsContainer.innerHTML = '<p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>';
+            }
+
+
+            summaryLate.textContent = countLate;
+            summaryToday.textContent = countToday;
+            summaryUpcoming.textContent = countUpcoming;
         };
 
         // --- Chart.js instances ---
         let materiaChart;
         let assuntoChart;
         let overallChart;
-        let comparisonTrendChart; // Renamed from assuntoTrendChart
+        let comparisonTrendChart;
 
         // Function to update the performance display and graphs
         const updatePerformanceDisplay = (records, filterMateria = 'todos', filterAssunto = 'todos', startDate = '', endDate = '') => {
             const performanceSummary = document.getElementById('performance-summary');
-            if (!performanceSummary) return; // Ensure element exists
+            if (!performanceSummary) return;
 
-            performanceSummary.innerHTML = ''; // Clear previous content
+            performanceSummary.innerHTML = '';
 
-            let recordsForMainFilters = records; // Records filtered by main filters (materia, assunto, date)
+            let recordsForMainFilters = records;
 
-            // Apply main filters (Materia, Assunto, Date)
             if (filterMateria !== 'todos') {
                 recordsForMainFilters = recordsForMainFilters.filter(record => record.materia.toLowerCase() === filterMateria.toLowerCase());
             }
@@ -241,7 +490,7 @@
                 recordsForMainFilters = recordsForMainFilters.filter(record => {
                     const recordDate = new Date(record.data);
                     const start = new Date(startDate);
-                    const end = new Date(new Date(endDate).setDate(new Date(endDate).getDate() + 1)); // Include end date fully
+                    const end = new Date(new Date(endDate).setDate(new Date(endDate).getDate() + 1));
                     return recordDate >= start && recordDate < end;
                 });
             } else if (startDate) {
@@ -258,8 +507,6 @@
                 });
             }
 
-            // Determine the records to be displayed in the charts and summaries
-            // If comparison is active and items are selected, filter recordsForMainFilters further
             let recordsForDisplay = recordsForMainFilters;
             if (comparisonSettings.type !== 'none' && comparisonSettings.items.length > 0) {
                 if (comparisonSettings.type === 'materia') {
@@ -273,7 +520,6 @@
                 }
             }
 
-
             if (recordsForDisplay.length === 0) {
                 if (displaySettings.showOverallSummary) {
                     performanceSummary.innerHTML += `
@@ -284,29 +530,26 @@
                         </div>
                     `;
                 }
-                // Destroy existing charts if no data
                 if (materiaChart) materiaChart.destroy();
                 if (assuntoChart) assuntoChart.destroy();
                 if (overallChart) overallChart.destroy();
-                if (comparisonTrendChart) comparisonTrendChart.destroy(); // Destroy comparison trend chart
+                if (comparisonTrendChart) comparisonTrendChart.destroy();
                 return;
             }
 
-            // Calculate overall performance
             let totalFeita = 0;
             let totalAcertada = 0;
-            recordsForDisplay.forEach(record => { // Use recordsForDisplay
+            recordsForDisplay.forEach(record => {
                 totalFeita += record.quantidadeFeita;
                 totalAcertada += record.quantidadeAcertada;
             });
             const totalErros = totalFeita - totalAcertada;
             const overallAccuracy = totalFeita > 0 ? (totalAcertada / totalFeita) * 100 : 0;
 
-            // Group by Materia and Assunto
             const performanceByMateria = {};
             const performanceByAssunto = {};
 
-            recordsForDisplay.forEach(record => { // Use recordsForDisplay
+            recordsForDisplay.forEach(record => {
                 const materia = record.materia.toLowerCase();
                 const assunto = record.assunto.toLowerCase();
 
@@ -323,11 +566,10 @@
                 performanceByAssunto[assunto].acertada += record.quantidadeAcertada;
             });
 
-            // Calculate accuracy for each materia and assunto
             const materiaAccuracy = Object.entries(performanceByMateria).map(([materia, data]) => ({
                 name: materia,
                 accuracy: data.feita > 0 ? (data.acertada / data.feita) * 100 : 0,
-                feita: data.feita, // Add total feita
+                feita: data.feita,
                 acertada: data.acertada,
                 erros: data.feita - data.acertada
             }));
@@ -335,16 +577,14 @@
             const assuntoAccuracy = Object.entries(performanceByAssunto).map(([assunto, data]) => ({
                 name: assunto,
                 accuracy: data.feita > 0 ? (data.acertada / data.feita) * 100 : 0,
-                feita: data.feita, // Add total feita
+                feita: data.feita,
                 acertada: data.acertada,
                 erros: data.feita - data.acertada
             }));
 
-            // Identify areas for improvement (using user-defined threshold)
             const materiasToImprove = materiaAccuracy.filter(m => m.accuracy < currentAccuracyThreshold).sort((a, b) => a.accuracy - b.accuracy);
             const assuntosToImprove = assuntoAccuracy.filter(a => a.accuracy < currentAccuracyThreshold).sort((a, b) => a.accuracy - b.accuracy);
 
-            // Display overall performance with literal quantities - Conditional
             if (displaySettings.showOverallSummary) {
                 performanceSummary.innerHTML += `
                     <div class="mb-6 p-4 bg-blue-50 rounded-lg shadow-inner">
@@ -358,11 +598,9 @@
                 `;
             }
 
-
-            // Display revisions per assunto if only materia is filtered - Conditional
             if (displaySettings.showAssuntoRevisions && filterMateria !== 'todos' && filterAssunto === 'todos') {
                 const revisionsByAssunto = {};
-                recordsForDisplay.forEach(record => { // Use recordsForDisplay
+                recordsForDisplay.forEach(record => {
                     const assunto = record.assunto.toLowerCase();
                     if (!revisionsByAssunto[assunto]) {
                         revisionsByAssunto[assunto] = { count: 0, feita: 0, acertada: 0 };
@@ -388,8 +626,6 @@
                 performanceSummary.innerHTML += assuntoRevisionsHtml;
             }
 
-
-            // Display areas to improve - Conditional
             if (displaySettings.showImprovementAreas && (materiasToImprove.length > 0 || assuntosToImprove.length > 0)) {
                 performanceSummary.innerHTML += `
                     <div class="mb-6 p-4 bg-red-50 rounded-lg shadow-inner">
@@ -399,39 +635,31 @@
                             <ul class="list-disc list-inside text-red-800">
                                 ${materiasToImprove.map(m => `<li>${m.name.toUpperCase()}: ${m.accuracy.toFixed(2)}% (${m.feita} questões, ${m.acertada} acertos, ${m.erros} erros)</li>`).join('')}
                             </ul>
-                        ` : '<p class="text-red-800">Excelente! Nenhuma matéria abaixo do limite de precisão.</p>'}
+                        ` : ''}
                         ${assuntosToImprove.length > 0 ? `
                             <h4 class="font-medium text-red-600 mt-3">Assuntos:</h4>
                             <ul class="list-disc list-inside text-red-800">
                                 ${assuntosToImprove.map(a => `<li>${a.name.toUpperCase()}: ${a.accuracy.toFixed(2)}% (${a.feita} questões, ${a.acertada} acertos, ${a.erros} erros)</li>`).join('')}
                             </ul>
-                        ` : '<p class="text-red-800">Ótimo! Nenhuma assunto abaixo do limite de precisão.</p>'}
+                        ` : ''}
                     </div>
                 `;
-            } else if (displaySettings.showImprovementAreas) { // If user wants to see improvement areas but none exist
-                 performanceSummary.innerHTML += `
-                    <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-inner">
-                        <h3 class="text-xl font-semibold text-green-700 mb-2">Parabéns!</h3>
-                        <p class="text-green-800">Sua precisão está excelente em todas as matérias e assuntos, ou acima do limite de ${currentAccuracyThreshold}%!</p>
-                    </div>
-                `;
+            } else if (displaySettings.showImprovementAreas) {
+                     performanceSummary.innerHTML += `
+                     <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-inner">
+                         <h3 class="text-xl font-semibold text-green-700 mb-2">Parabéns!</h3>
+                         <p class="text-green-800">Sua precisão está excelente em todas as matérias e assuntos, ou acima do limite de ${currentAccuracyThreshold}%!</p>
+                     </div>
+                 `;
             }
 
 
-            // Render Charts - Conditional
-            renderCharts(overallAccuracy, materiaAccuracy, assuntoAccuracy, recordsForDisplay, recordsForMainFilters, filterMateria, filterAssunto); // Pass recordsForMainFilters as well
+            renderCharts(overallAccuracy, materiaAccuracy, assuntoAccuracy, recordsForDisplay, recordsForMainFilters, filterMateria, filterAssunto);
         };
 
-        // Function to render/update Chart.js graphs
         const renderCharts = (overallAccuracy, materiaAccuracy, assuntoAccuracy, recordsForDisplay, recordsForMainFilters, filterMateria, filterAssunto) => {
-            // Overall Accuracy Chart
             const overallCtx = document.getElementById('overallAccuracyChart');
-            if (!overallCtx) { // Added null check for canvas context
-                if (overallChart) overallChart.destroy();
-                const container = document.getElementById('overallAccuracyChartContainer');
-                if (container) container.classList.add('hidden'); // Hide container if canvas not found
-                return;
-            }
+            if (!overallCtx) { if (overallChart) overallChart.destroy(); const container = document.getElementById('overallAccuracyChartContainer'); if (container) container.classList.add('hidden'); return; }
             if (overallChart) overallChart.destroy();
             const overallChartContainer = document.getElementById('overallAccuracyChartContainer');
             if (overallChartContainer) overallChartContainer.classList.toggle('hidden', !displaySettings.showOverallAccuracyChart);
@@ -459,12 +687,8 @@
                                 callbacks: {
                                     label: function(context) {
                                         let label = context.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                    }
-                                        if (context.parsed !== null) {
-                                            label += context.parsed.toFixed(2) + '%';
-                                        }
+                                        if (label) { label += ': '; }
+                                        if (context.parsed !== null) { label += context.parsed.toFixed(2) + '%'; }
                                         return label;
                                     }
                                 }
@@ -474,15 +698,8 @@
                 });
             }
 
-
-            // Materia Accuracy Bar Chart
             const materiaCtx = document.getElementById('materiaAccuracyChart');
-            if (!materiaCtx) { // Added null check for canvas context
-                if (materiaChart) materiaChart.destroy();
-                const container = document.getElementById('materiaAccuracyChartContainer');
-                if (container) container.classList.add('hidden'); // Hide container if canvas not found
-                return;
-            }
+            if (!materiaCtx) { if (materiaChart) materiaChart.destroy(); const container = document.getElementById('materiaAccuracyChartContainer'); if (container) container.classList.add('hidden'); return; }
             if (materiaChart) materiaChart.destroy();
             const materiaChartContainer = document.getElementById('materiaAccuracyChartContainer');
             if (materiaChartContainer) materiaChartContainer.classList.toggle('hidden', !displaySettings.showMateriaAccuracyChart);
@@ -523,15 +740,8 @@
                 });
             }
 
-
-            // Assunto Accuracy Bar Chart
             const assuntoCtx = document.getElementById('assuntoAccuracyChart');
-            if (!assuntoCtx) { // Added null check for canvas context
-                if (assuntoChart) assuntoChart.destroy();
-                const container = document.getElementById('assuntoAccuracyChartContainer');
-                if (container) container.classList.add('hidden'); // Hide container if canvas not found
-                return;
-            }
+            if (!assuntoCtx) { if (assuntoChart) assuntoChart.destroy(); const container = document.getElementById('assuntoAccuracyChartContainer'); if (container) container.classList.add('hidden'); return; }
             if (assuntoChart) assuntoChart.destroy();
             const assuntoChartContainer = document.getElementById('assuntoAccuracyChartContainer');
             if (assuntoChartContainer) assuntoChartContainer.classList.toggle('hidden', !displaySettings.showAssuntoAccuracyChart);
@@ -572,15 +782,8 @@
                 });
             }
 
-
-            // Comparison Trend Chart (formerly Assunto Trend Chart)
             const trendCtx = document.getElementById('assuntoTrendChart');
-            if (!trendCtx) { // Added null check for canvas context
-                if (comparisonTrendChart) comparisonTrendChart.destroy();
-                const container = document.getElementById('assuntoTrendChartContainer');
-                if (container) container.classList.add('hidden'); // Hide container if canvas not found
-                return;
-            }
+            if (!trendCtx) { if (comparisonTrendChart) comparisonTrendChart.destroy(); const container = document.getElementById('assuntoTrendChartContainer'); if (container) container.classList.add('hidden'); return; }
             if (comparisonTrendChart) comparisonTrendChart.destroy();
             const trendChartContainer = document.getElementById('assuntoTrendChartContainer');
             if (trendChartContainer) trendChartContainer.classList.toggle('hidden', !displaySettings.showTrendChart);
@@ -592,37 +795,29 @@
 
                 const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9900', '#C9CBCF', '#A3E635', '#F87171', '#60A5FA'];
 
-                let recordsForTrendAggregation = recordsForMainFilters; // Start with records filtered by main filters
+                let recordsForTrendAggregation = recordsForMainFilters;
 
                 if (comparisonSettings.type === 'materia' && comparisonSettings.items.length > 0) {
                     trendChartTitle = 'Evolução da Precisão por Matéria (Comparativo)';
-                    // Filter records for trend aggregation based on selected comparison items
                     recordsForTrendAggregation = recordsForMainFilters.filter(record =>
                         comparisonSettings.items.includes(record.materia.toLowerCase())
                     );
                 } else if (comparisonSettings.type === 'assunto' && comparisonSettings.items.length > 0) {
                     trendChartTitle = 'Evolução da Precisão por Assunto (Comparativo)';
-                    // Filter records for trend aggregation based on selected comparison items
                     recordsForTrendAggregation = recordsForMainFilters.filter(record =>
                         comparisonSettings.items.includes(record.assunto.toLowerCase())
                     );
                 } else {
-                    // Default trend: use recordsForMainFilters for aggregation
-                    // The grouping key will determine if it's overall, by materia, or by assunto
                     if (filterAssunto !== 'todos') {
-                        // Single assunto trend (already handled by recordsForMainFilters)
                         trendChartTitle = `Evolução da Precisão em ${filterAssunto.toUpperCase()}`;
                     } else if (filterMateria !== 'todos') {
-                        // Trends for assuntos within a materia (already handled by recordsForMainFilters)
                         trendChartTitle = `Evolução da Precisão por Assunto em ${filterMateria.toUpperCase()}`;
                     } else {
-                        // Trends for all materias (already handled by recordsForMainFilters)
                         trendChartTitle = `Evolução da Precisão por Matéria`;
                     }
                 }
 
-                // Aggregate data based on groupingKey for the trend chart
-                const aggregatedTrendData = {}; // { 'category': { 'date': { feita: X, acertada: Y } } }
+                const aggregatedTrendData = {};
 
                 recordsForTrendAggregation.forEach(record => {
                     let category = '';
@@ -630,8 +825,8 @@
                         category = record.materia.toLowerCase();
                     } else if (comparisonSettings.type === 'assunto' || (comparisonSettings.type === 'none' && filterMateria !== 'todos' && filterAssunto === 'todos')) {
                         category = record.assunto.toLowerCase();
-                    } else { // comparisonSettings.type === 'none' && filterAssunto !== 'todos'
-                        category = 'único'; // For single-assunto trend
+                    } else {
+                        category = 'único';
                     }
 
                     if (!aggregatedTrendData[category]) {
@@ -644,14 +839,12 @@
                     aggregatedTrendData[category][record.data].acertada += record.quantidadeAcertada;
                 });
 
-                // Generate labels (all unique dates across all relevant records)
                 const allDates = new Set();
                 Object.values(aggregatedTrendData).forEach(categoryData => {
                     Object.keys(categoryData).forEach(date => allDates.add(date));
                 });
                 trendLabels = Array.from(allDates).sort();
 
-                // Generate datasets
                 let colorIndex = 0;
                 Object.keys(aggregatedTrendData).forEach(category => {
                     const categoryData = aggregatedTrendData[category];
@@ -688,7 +881,7 @@
                                     text: trendChartTitle,
                                     font: { size: 18 }
                                 },
-                                annotation: { // Add annotation plugin for the target line
+                                annotation: {
                                     annotations: {
                                         line1: {
                                             type: 'line',
@@ -728,11 +921,10 @@
             }
         };
 
-        // Function to populate the records table
         const populateRecordsTable = (records) => {
             const tableBody = document.getElementById('records-table-body');
-            if (!tableBody) return; // Added null check
-            tableBody.innerHTML = ''; // Clear existing rows
+            if (!tableBody) return;
+            tableBody.innerHTML = '';
 
             records.forEach(record => {
                 const row = tableBody.insertRow();
@@ -758,13 +950,11 @@
             });
         };
 
-        // Function to populate the materia filter dropdown
         const populateMateriaFilter = (records) => {
             const materiaFilter = document.getElementById('materia-filter');
-            if (!materiaFilter) return; // Added null check
+            if (!materiaFilter) return;
             const uniqueMaterias = new Set(records.map(record => record.materia.toLowerCase()));
 
-            // Clear existing options except "Todos"
             materiaFilter.innerHTML = '<option value="todos">Todas as Matérias</option>';
 
             uniqueMaterias.forEach(materia => {
@@ -774,15 +964,12 @@
                 materiaFilter.appendChild(option);
             });
 
-            // Set the current filter value
             materiaFilter.value = currentFilterMateria;
         };
 
-        // Function to populate the assunto filter dropdown
         const populateAssuntoFilter = (records) => {
             const assuntoFilter = document.getElementById('assunto-filter');
-            if (!assuntoFilter) return; // Added null check
-            // Filter records based on current materia selection
+            if (!assuntoFilter) return;
             let recordsForAssuntoFilter = records;
             if (currentFilterMateria !== 'todos') {
                 recordsForAssuntoFilter = records.filter(record => record.materia.toLowerCase() === currentFilterMateria.toLowerCase());
@@ -790,7 +977,6 @@
 
             const uniqueAssuntos = new Set(recordsForAssuntoFilter.map(record => record.assunto.toLowerCase()));
 
-            // Clear existing options except "Todos"
             assuntoFilter.innerHTML = '<option value="todos">Todos os Assuntos</option>';
 
             uniqueAssuntos.forEach(assunto => {
@@ -800,18 +986,15 @@
                 assuntoFilter.appendChild(option);
             });
 
-            // Set the current filter value
             assuntoFilter.value = currentFilterAssunto;
         };
 
-        // Function to populate datalists for materia and assunto suggestions
         const populateDatalists = (records) => {
             const materiaDatalist = document.getElementById('materias-datalist');
             const assuntoDatalist = document.getElementById('assuntos-datalist');
 
-            if (!materiaDatalist || !assuntoDatalist) return; // Added null check
+            if (!materiaDatalist || !assuntoDatalist) return;
 
-            // Clear existing options
             materiaDatalist.innerHTML = '';
             assuntoDatalist.innerHTML = '';
 
@@ -831,12 +1014,11 @@
             });
         };
 
-        // Function to populate the selection buttons for comparison
         const populateComparisonSelectionButtons = () => {
             const comparisonButtonsContainer = document.getElementById('comparison-buttons-container');
-            if (!comparisonButtonsContainer) return; // Added null check
+            if (!comparisonButtonsContainer) return;
 
-            comparisonButtonsContainer.innerHTML = ''; // Clear previous buttons
+            comparisonButtonsContainer.innerHTML = '';
 
             let itemsToPopulate = [];
             if (comparisonSettings.type === 'materia') {
@@ -850,7 +1032,6 @@
                 button.type = 'button';
                 button.value = item.toLowerCase();
                 button.textContent = item.toUpperCase();
-                // Replaced @apply with direct Tailwind classes
                 button.classList.add('px-4', 'py-2', 'rounded-full', 'border', 'text-sm', 'font-medium', 'transition-colors', 'duration-200');
 
                 if (comparisonSettings.items.includes(item.toLowerCase())) {
@@ -863,37 +1044,33 @@
                     const value = button.value;
                     const index = comparisonSettings.items.indexOf(value);
                     if (index > -1) {
-                        comparisonSettings.items.splice(index, 1); // Remove if already selected
+                        comparisonSettings.items.splice(index, 1);
                     } else {
-                        comparisonSettings.items.push(value); // Add if not selected
+                        comparisonSettings.items.push(value);
                     }
                     saveComparisonSettings();
-                    populateComparisonSelectionButtons(); // Re-render buttons to update state
-                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate); // Update chart
+                    populateComparisonSelectionButtons();
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
                 comparisonButtonsContainer.appendChild(button);
             });
         };
 
-        // Function to update visibility of comparison selection buttons
         const updateComparisonOptionsVisibility = () => {
             const comparisonButtonsContainer = document.getElementById('comparison-buttons-container');
-            if (comparisonButtonsContainer) { // Added null check
+            if (comparisonButtonsContainer) {
                 if (comparisonSettings.type === 'none') {
                     comparisonButtonsContainer.classList.add('hidden');
                 } else {
                     comparisonButtonsContainer.classList.remove('hidden');
-                    populateComparisonSelectionButtons(); // Call this here to ensure buttons are populated if type changes
+                    populateComparisonSelectionButtons();
                 }
             }
         };
 
-        // Function to export data to CSV
-        const exportToCsv = (isAutomaticBackup = false) => { // Added parameter to differentiate manual/automatic
+        const exportToCsv = (isAutomaticBackup = false) => {
             if (currentRecords.length === 0) {
-                if (!isAutomaticBackup) { // Only show message for manual export if no data
-                    showMessage('Não há dados para exportar.', 'warning');
-                }
+                if (!isAutomaticBackup) { showMessage('Não há dados para exportar.', 'warning'); }
                 return;
             }
 
@@ -913,32 +1090,26 @@
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            if (link.download !== undefined) { // Feature detection for download attribute
+            if (link.download !== undefined) {
                 const url = URL.createObjectURL(blob);
-                // For automatic backup, use a timestamp in the filename
                 const filename = isAutomaticBackup ? `backup_questoes_${new Date().toISOString().slice(0,10)}.csv` : 'registros_questoes.csv';
                 link.setAttribute('href', url);
                 link.setAttribute('download', filename);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
-                if (!isAutomaticBackup) { // Only show message for manual export
-                    showMessage('Dados exportados para CSV com sucesso!', 'success');
-                }
+                if (!isAutomaticBackup) { showMessage('Dados exportados para CSV com sucesso!', 'success'); }
             } else {
                 showMessage('Seu navegador não suporta a exportação direta para CSV.', 'error');
             }
-            if (document.body.contains(link)) { // Check if link is still in DOM before removal
+            if (document.body.contains(link)) {
                 document.body.removeChild(link);
             }
         };
 
-        // Function to import data from CSV
         const importFromCsv = (event) => {
             const file = event.target.files[0];
-            if (!file) {
-                return;
-            }
+            if (!file) { return; }
 
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -984,7 +1155,7 @@
                     }
 
                     importedRecords.push({
-                        id: Date.now().toString() + '-' + i, // Generate unique ID for imported records
+                        id: Date.now().toString() + '-' + i,
                         materia: record.Matéria,
                         assunto: record.Assunto,
                         data: record.Data,
@@ -1003,17 +1174,96 @@
                     return;
                 }
 
-                // Append imported records to current records
                 currentRecords = currentRecords.concat(importedRecords);
-                saveRecordsToLocalStorage(); // Persist all new records
-
+                saveRecordsToLocalStorage();
+                importedRecords.forEach(r => updateRevisionSchedule(r.materia, r.assunto));
+                
                 showMessage(`Importação concluída: ${successCount} registros adicionados, ${errorCount} erros.`, 'info');
-                loadQuestionData(); // Reload all data and refresh UI
+                loadQuestionData();
             };
             reader.readAsText(file);
         };
 
-        // --- Modal for Editing Records ---
+        const populateRevisionIntervals = () => {
+            const intervalsContainer = document.getElementById('revision-intervals-container');
+            if (!intervalsContainer) return;
+            intervalsContainer.innerHTML = '';
+
+            revisionIntervals.forEach((interval, index) => {
+                const intervalHtml = `
+                    <div class="flex items-center space-x-2 my-2">
+                        <span class="w-1/4 text-right text-sm text-gray-600">${interval.minAccuracy}% - ${interval.maxAccuracy}%:</span>
+                        <input type="number" id="min-days-${index}" value="${interval.minDays}" min="0" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
+                        <span class="text-sm text-gray-600">-</span>
+                        <input type="number" id="max-days-${index}" value="${interval.maxDays}" min="0" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
+                        <span class="text-sm text-gray-600">dias</span>
+                    </div>
+                `;
+                intervalsContainer.innerHTML += intervalHtml;
+            });
+            // Add event listeners to the new inputs
+            intervalsContainer.querySelectorAll('input').forEach(input => {
+                input.addEventListener('change', updateRevisionIntervals);
+            });
+        };
+
+        const updateRevisionIntervals = () => {
+            const newIntervals = [];
+            const inputs = document.querySelectorAll('#revision-intervals-container input');
+            
+            for (let i = 0; i < inputs.length; i += 2) {
+                const minDays = parseInt(inputs[i].value);
+                const maxDays = parseInt(inputs[i+1].value);
+
+                if (isNaN(minDays) || isNaN(maxDays) || minDays < 0 || maxDays < 0 || minDays > maxDays) {
+                    showMessage('Valores de intervalo de revisão inválidos. Verifique se os números são positivos e o mínimo é menor ou igual ao máximo.', 'error');
+                    populateRevisionIntervals(); // Revert to previous values
+                    return;
+                }
+                newIntervals.push({
+                    minAccuracy: revisionIntervals[i/2].minAccuracy,
+                    maxAccuracy: revisionIntervals[i/2].maxAccuracy,
+                    minDays: minDays,
+                    maxDays: maxDays
+                });
+            }
+            revisionIntervals = newIntervals;
+            saveRevisionIntervals();
+            // Re-calculate all revisions based on the new intervals
+            const uniqueSubjects = new Set(currentRecords.map(r => `${r.materia}|${r.assunto}`));
+            uniqueSubjects.forEach(subject => {
+                const [materia, assunto] = subject.split('|');
+                updateRevisionSchedule(materia, assunto);
+            });
+            showMessage('Intervalos de revisão atualizados com sucesso!', 'success');
+        };
+
+        const initializeDisplaySettingsCheckboxes = () => {
+             document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
+                 if (checkbox) {
+                     checkbox.checked = displaySettings[checkbox.id];
+                     const parentLabel = checkbox.closest('label');
+                     if (parentLabel) {
+                         parentLabel.classList.toggle('bg-blue-100', checkbox.checked);
+                         parentLabel.classList.toggle('border-blue-400', checkbox.checked);
+                         parentLabel.classList.toggle('bg-gray-50', !checkbox.checked);
+                         parentLabel.classList.toggle('border-gray-300', !checkbox.checked);
+                     }
+                 }
+             });
+         };
+         
+         const initializeComparisonSettings = () => {
+             const compareTypeRadios = document.querySelectorAll('input[name="compare-type"]');
+             compareTypeRadios.forEach(radio => {
+                 if (radio.value === comparisonSettings.type) {
+                     radio.checked = true;
+                 }
+             });
+             updateComparisonOptionsVisibility();
+             populateComparisonSelectionButtons();
+         };
+
         const editModal = document.getElementById('edit-modal');
         const editForm = document.getElementById('edit-form');
         const editRecordId = document.getElementById('edit-record-id');
@@ -1025,7 +1275,7 @@
         const closeEditModalBtn = document.getElementById('close-edit-modal');
 
         const openEditModal = (record) => {
-            if (!editModal || !editForm || !editRecordId || !editMateria || !editAssunto || !editData || !editQuantidadeFeita || !editQuantidadeAcertada) return; // Added null checks
+            if (!editModal || !editForm || !editRecordId || !editMateria || !editAssunto || !editData || !editQuantidadeFeita || !editQuantidadeAcertada) return;
             editRecordId.value = record.id;
             editMateria.value = record.materia;
             editAssunto.value = record.assunto;
@@ -1036,10 +1286,10 @@
         };
 
         const closeEditModal = () => {
-            if (editModal) editModal.classList.add('hidden'); // Added null check
+            if (editModal) editModal.classList.add('hidden');
         };
 
-        if (editForm) { // Added null check for event listener setup
+        if (editForm) {
             editForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id = editRecordId.value;
@@ -1059,11 +1309,10 @@
                 updateQuestionRecord(id, updatedData);
             });
         }
-        if (closeEditModalBtn) { // Added null check for event listener setup
+        if (closeEditModalBtn) {
             closeEditModalBtn.addEventListener('click', closeEditModal);
         }
 
-        // --- Custom Confirmation Modal ---
         const confirmationModal = document.getElementById('confirmation-modal');
         const confirmationMessage = document.getElementById('confirmation-message');
         const confirmYesBtn = document.getElementById('confirm-yes');
@@ -1071,18 +1320,18 @@
         let confirmAction = null;
 
         const showConfirmationModal = (message, onConfirm) => {
-            if (!confirmationModal || !confirmationMessage) return; // Added null checks
+            if (!confirmationModal || !confirmationMessage) return;
             confirmationMessage.textContent = message;
             confirmAction = onConfirm;
             confirmationModal.classList.remove('hidden');
         };
 
         const closeConfirmationModal = () => {
-            if (confirmationModal) confirmationModal.classList.add('hidden'); // Added null check
+            if (confirmationModal) confirmationModal.classList.add('hidden');
             confirmAction = null;
         };
 
-        if (confirmYesBtn) { // Added null check for event listener setup
+        if (confirmYesBtn) {
             confirmYesBtn.addEventListener('click', () => {
                 if (confirmAction) {
                     confirmAction();
@@ -1090,63 +1339,101 @@
                 closeConfirmationModal();
             });
         }
-        if (confirmNoBtn) { // Added null check for event listener setup
+        if (confirmNoBtn) {
             confirmNoBtn.addEventListener('click', closeConfirmationModal);
         }
 
-        // Function to open the settings modal
-        window.openSettingsModal = () => { // Defined as global
+        window.openSettingsModal = () => {
             const settingsModal = document.getElementById('settings-modal');
-            if (settingsModal) { // Added null check
+            if (settingsModal) {
                 settingsModal.classList.remove('hidden');
-                // Ensure filters are populated when modal opens
                 populateMateriaFilter(currentRecords);
                 populateAssuntoFilter(currentRecords);
-                populateComparisonSelectionButtons(); // Repopulate multi-select for comparison
+                populateComparisonSelectionButtons();
             }
         };
 
-        // Function to close the settings modal
-        window.closeSettingsModal = () => { // Defined as global
+        window.closeSettingsModal = () => {
             const settingsModal = document.getElementById('settings-modal');
-            if (settingsModal) { // Added null check
+            if (settingsModal) {
                 settingsModal.classList.add('hidden');
-                // Re-apply filters and display settings after closing modal
                 updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
             }
         };
 
+        window.openRevisionSettingsModal = () => {
+             const revisionSettingsModal = document.getElementById('revision-settings-modal');
+             if (revisionSettingsModal) {
+                 revisionSettingsModal.classList.remove('hidden');
+                 populateRevisionIntervals();
+             }
+         };
 
-        // --- Event Listeners and Initial Setup ---
+        window.closeRevisionSettingsModal = () => {
+            const revisionSettingsModal = document.getElementById('revision-settings-modal');
+            if (revisionSettingsModal) {
+                revisionSettingsModal.classList.add('hidden');
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            loadQuestionData(); // Load data on startup
+            // Load data from local storage
+            loadQuestionData();
+            
+            // Now that all data is loaded, initialize the UI
+            initializeDisplaySettingsCheckboxes();
+            initializeComparisonSettings();
+            updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
+            populateRecordsTable(currentRecords);
+            populateRevisionsTable(currentRevisions);
+            populateMateriaFilter(currentRecords);
+            populateAssuntoFilter(currentRecords);
+            populateDatalists(currentRecords);
+            populateRevisionIntervals();
 
-            // Navigation buttons
-            const showRegisterSectionBtn = document.getElementById('show-register-section');
-            const showPerformanceSectionBtn = document.getElementById('show-performance-section');
-            const registroSection = document.getElementById('registro-section');
-            const desempenhoSection = document.getElementById('desempenho-section');
-
-            if (showRegisterSectionBtn && registroSection && desempenhoSection) { // Added null checks
-                showRegisterSectionBtn.addEventListener('click', () => {
-                    registroSection.classList.remove('hidden');
-                    desempenhoSection.classList.add('hidden');
-                });
+            if (currentRecords.length === 0) {
+                showMessage('Bem-vindo! Seus dados serão salvos localmente. Mantenha-os em segurança com a função de exportar CSV.', 'info');
             }
 
-            if (showPerformanceSectionBtn && registroSection && desempenhoSection) { // Added null checks
+            const showRegisterSectionBtn = document.getElementById('show-register-section');
+            const showPerformanceSectionBtn = document.getElementById('show-performance-section');
+            const showRevisionsSectionBtn = document.getElementById('show-revisions-section');
+            const registroSection = document.getElementById('registro-section');
+            const desempenhoSection = document.getElementById('desempenho-section');
+            const revisoesSection = document.getElementById('revisoes-section');
+
+            const allSections = [registroSection, desempenhoSection, revisoesSection];
+
+            const hideAllSections = () => {
+                allSections.forEach(section => section && section.classList.add('hidden'));
+            };
+
+            const showSection = (sectionToShow) => {
+                hideAllSections();
+                if (sectionToShow) sectionToShow.classList.remove('hidden');
+            };
+
+            if (showRegisterSectionBtn) {
+                showRegisterSectionBtn.addEventListener('click', () => showSection(registroSection));
+            }
+
+            if (showPerformanceSectionBtn) {
                 showPerformanceSectionBtn.addEventListener('click', () => {
-                    registroSection.classList.add('hidden');
-                    desempenhoSection.classList.remove('hidden');
-                    // Ensure data is loaded and displayed when switching to performance view
+                    showSection(desempenhoSection);
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                     populateRecordsTable(currentRecords);
                 });
             }
+            
+            if (showRevisionsSectionBtn) {
+                showRevisionsSectionBtn.addEventListener('click', () => {
+                    showSection(revisoesSection);
+                    populateRevisionsTable(currentRevisions); // Ensure revisions are loaded when section is shown
+                });
+            }
 
-            // Form submission for adding new records
             const questionForm = document.getElementById('question-form');
-            if (questionForm) { // Added null check
+            if (questionForm) {
                 questionForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
 
@@ -1167,7 +1454,6 @@
                     const quantidadeFeita = parseInt(quantidadeFeitaInput.value);
                     const quantidadeAcertada = parseInt(quantidadeAcertadaInput.value);
 
-                    // Basic validation
                     if (!materia || !assunto || !data || isNaN(quantidadeFeita) || isNaN(quantidadeAcertada)) {
                         showMessage('Por favor, preencha todos os campos corretamente.', 'warning');
                         return;
@@ -1181,40 +1467,70 @@
                     const newRecord = {
                         materia: materia,
                         assunto: assunto,
-                        data: data, // Store as string 'YYYY-MM-DD'
+                        data: data,
                         quantidadeFeita: quantidadeFeita,
                         quantidadeAcertada: quantidadeAcertada,
-                        timestamp: new Date().toISOString() // For ordering if needed
+                        timestamp: new Date().toISOString()
                     };
 
                     addQuestionRecord(newRecord);
-                    questionForm.reset(); // Clear the form
+                    questionForm.reset();
                 });
             }
+            
+            const completeRevisionForm = document.getElementById('complete-revision-form');
+            if (completeRevisionForm) {
+                 completeRevisionForm.addEventListener('submit', (e) => {
+                     e.preventDefault();
+                     const revisionId = document.getElementById('complete-revision-id').value;
+                     const quantidadeFeita = parseInt(document.getElementById('revision-quantidadeFeita').value);
+                     const quantidadeAcertada = parseInt(document.getElementById('revision-quantidadeAcertada').value);
+                     
+                     if (isNaN(quantidadeFeita) || isNaN(quantidadeAcertada) || quantidadeAcertada > quantidadeFeita) {
+                         showMessage('Valores de questões inválidos. Verifique os números.', 'warning');
+                         return;
+                     }
+                     
+                     submitCompleteRevisionForm(revisionId, quantidadeFeita, quantidadeAcertada);
+                 });
+             }
+             
+             const rescheduleForm = document.getElementById('reschedule-form');
+             if (rescheduleForm) {
+                 rescheduleForm.addEventListener('submit', (e) => {
+                     e.preventDefault();
+                     const revisionId = document.getElementById('reschedule-revision-id').value;
+                     const newDate = document.getElementById('reschedule-date').value;
 
-            // Filter by Materia event listener (inside settings modal) - REAL-TIME UPDATE
+                     if (!newDate) {
+                         showMessage('Por favor, selecione uma data válida.', 'warning');
+                         return;
+                     }
+
+                     submitRescheduleForm(revisionId, newDate);
+                 });
+             }
+
             const materiaFilter = document.getElementById('materia-filter');
-            if (materiaFilter) { // Added null check
+            if (materiaFilter) {
                 materiaFilter.addEventListener('change', (e) => {
                     currentFilterMateria = e.target.value;
-                    currentFilterAssunto = 'todos'; // Reset assunto filter when materia filter changes
+                    currentFilterAssunto = 'todos';
                     const assuntoFilter = document.getElementById('assunto-filter');
-                    if (assuntoFilter) assuntoFilter.value = 'todos'; // Visually reset the dropdown
-                    populateAssuntoFilter(currentRecords); // Repopulate assunto filter based on new materia
+                    if (assuntoFilter) assuntoFilter.value = 'todos';
+                    populateAssuntoFilter(currentRecords);
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             }
 
-            // Filter by Assunto event listener (inside settings modal) - REAL-TIME UPDATE
             const assuntoFilter = document.getElementById('assunto-filter');
-            if (assuntoFilter) { // Added null check
+            if (assuntoFilter) {
                 assuntoFilter.addEventListener('change', (e) => {
                     currentFilterAssunto = e.target.value;
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             }
 
-            // Date filter event listeners
             const startDateFilter = document.getElementById('start-date-filter');
             const endDateFilter = document.getElementById('end-date-filter');
             const resetDateFilterBtn = document.getElementById('reset-date-filter');
@@ -1231,7 +1547,7 @@
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             }
-            if (resetDateFilterBtn && startDateFilter && endDateFilter) { // Added null checks
+            if (resetDateFilterBtn && startDateFilter && endDateFilter) {
                 resetDateFilterBtn.addEventListener('click', () => {
                     currentStartDate = '';
                     currentEndDate = '';
@@ -1241,79 +1557,80 @@
                 });
             }
 
-            // Accuracy Threshold event listener
             const accuracyThresholdInput = document.getElementById('accuracy-threshold-input');
-            if (accuracyThresholdInput) { // Added null check
+            if (accuracyThresholdInput) {
                 accuracyThresholdInput.addEventListener('input', (e) => {
                     let value = parseInt(e.target.value);
                     if (isNaN(value) || value < 0) value = 0;
                     if (value > 100) value = 100;
                     currentAccuracyThreshold = value;
-                    e.target.value = value; // Ensure input reflects clamped value
+                    e.target.value = value;
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             }
 
-
-            // Export CSV button listener
             const exportCsvBtn = document.getElementById('export-csv-button');
-            if (exportCsvBtn) { // Added null check
-                exportCsvBtn.addEventListener('click', () => exportToCsv(false)); // Manual export
+            if (exportCsvBtn) {
+                exportCsvBtn.addEventListener('click', () => exportToCsv(false));
             }
 
-            // Import CSV button listener
             const importCsvBtn = document.getElementById('import-csv-button');
             const csvFileInput = document.getElementById('csv-file-input');
-            if (importCsvBtn && csvFileInput) { // Added null checks
+            if (importCsvBtn && csvFileInput) {
                 importCsvBtn.addEventListener('click', () => {
-                    csvFileInput.click(); // Trigger hidden file input click
+                    csvFileInput.click();
                 });
                 csvFileInput.addEventListener('change', importFromCsv);
             }
 
-            // Settings Modal control
             const openSettingsModalBtn = document.getElementById('open-settings-modal');
             const closeSettingsModalBtn = document.getElementById('close-settings-modal');
 
-            if (openSettingsModalBtn) { // Added null check
+            if (openSettingsModalBtn) {
                 openSettingsModalBtn.addEventListener('click', openSettingsModal);
             }
-            if (closeSettingsModalBtn) { // Added null check
+            if (closeSettingsModalBtn) {
                 closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
             }
 
-            // Event listeners for display settings checkboxes (inside settings modal)
+            const openRevisionSettingsBtn = document.getElementById('open-revision-settings');
+            const closeRevisionSettingsBtn = document.getElementById('close-revision-settings');
+            if (openRevisionSettingsBtn) {
+                openRevisionSettingsBtn.addEventListener('click', openRevisionSettingsModal);
+            }
+            if (closeRevisionSettingsBtn) {
+                closeRevisionSettingsBtn.addEventListener('click', closeRevisionSettingsModal);
+            }
+
+
             document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
                     displaySettings[e.target.id] = e.target.checked;
-                    saveDisplaySettings(); // Save updated settings
-                    initializeDisplaySettingsCheckboxes(); // Update visual state of checkboxes
+                    saveDisplaySettings();
+                    initializeDisplaySettingsCheckboxes();
                     updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             });
 
-            // Event listeners for comparison type radios (inside settings modal)
             document.querySelectorAll('input[name="compare-type"]').forEach(radio => {
                 radio.addEventListener('change', (e) => {
                     comparisonSettings.type = e.target.value;
-                    comparisonSettings.items = []; // Clear selected items when type changes
+                    comparisonSettings.items = [];
                     saveComparisonSettings();
                     updateComparisonOptionsVisibility();
-                    // populateComparisonSelectionButtons() is called inside updateComparisonOptionsVisibility
-                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate); // Real-time update
+                    updatePerformanceDisplay(currentRecords, currentFilterMateria, currentFilterAssunto, currentStartDate, currentEndDate);
                 });
             });
 
 
-            // Initially show the registration section
-            if (registroSection && desempenhoSection) { // Added null checks
+            if (registroSection && desempenhoSection && revisoesSection) {
                 registroSection.classList.remove('hidden');
                 desempenhoSection.classList.add('hidden');
+                revisoesSection.classList.add('hidden');
             }
         });
     </script>
     <style>
-        /* Custom styles for better aesthetics */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f0f4f8;
@@ -1326,12 +1643,12 @@
         }
         .card {
             background-color: #ffffff;
-            border-radius: 1rem; /* Rounded corners */
+            border-radius: 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             padding: 2rem;
         }
         .form-input, .form-button, .filter-select {
-            border-radius: 0.5rem; /* Rounded corners for inputs/buttons */
+            border-radius: 0.5rem;
         }
         .form-button {
             transition: background-color 0.3s ease, transform 0.2s ease;
@@ -1341,11 +1658,10 @@
         }
         .chart-container {
             position: relative;
-            height: 400px; /* Fixed height for charts */
+            height: 400px;
             width: 100%;
             margin-bottom: 2rem;
         }
-        /* Modal styles */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -1364,10 +1680,10 @@
             border-radius: 1rem;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             width: 90%;
-            max-width: 700px; /* Wider for more options */
+            max-width: 700px;
             position: relative;
-            max-height: 90vh; /* Limit modal height */
-            overflow-y: auto; /* Enable scrolling if content overflows */
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .close-button {
             position: absolute;
@@ -1379,7 +1695,6 @@
             cursor: pointer;
             color: #666;
         }
-        /* Styles for interactive selection buttons (cards/tags) */
         .comparison-item-button {
             padding: 0.5rem 1rem;
             border-radius: 9999px;
@@ -1406,19 +1721,21 @@
         .comparison-item-button:not(.selected):hover {
             background-color: #d1d5db;
         }
-
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
     <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg rounded-b-xl">
-        <div class="container flex justify-between items-center">
-            <h1 class="text-3xl font-bold">Registro e Desempenho de Questões</h1>
-            <div class="flex items-center space-x-4">
-                <button id="show-register-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg shadow-md">
-                    Registrar Questões
+        <div class="container flex justify-between items-center flex-wrap">
+            <h1 class="text-3xl font-bold mb-4 sm:mb-0">Registro e Desempenho de Questões</h1>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <button id="show-register-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
+                    Registrar
                 </button>
-                <button id="show-performance-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg shadow-md">
-                    Ver Desempenho
+                <button id="show-performance-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
+                    Desempenho
+                </button>
+                <button id="show-revisions-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
+                    Revisões
                 </button>
             </div>
         </div>
@@ -1435,32 +1752,32 @@
                     <div>
                         <label for="materia" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
                         <input type="text" id="materia" name="materia" required list="materias-datalist"
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         <datalist id="materias-datalist"></datalist>
                     </div>
                     <div>
                         <label for="assunto" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
                         <input type="text" id="assunto" name="assunto" required list="assuntos-datalist"
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         <datalist id="assuntos-datalist"></datalist>
                     </div>
                     <div>
                         <label for="data" class="block text-sm font-medium text-gray-700 mb-1">Data:</label>
                         <input type="date" id="data" name="data" required
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <div>
                         <label for="quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
                         <input type="number" id="quantidadeFeita" name="quantidadeFeita" min="0" required
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <div>
                         <label for="quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
                         <input type="number" id="quantidadeAcertada" name="quantidadeAcertada" min="0" required
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <button type="submit"
-                            class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                         Registrar
                     </button>
                 </form>
@@ -1512,9 +1829,69 @@
                 <div class="chart-container lg:col-span-1" id="assuntoAccuracyChartContainer">
                     <canvas id="assuntoAccuracyChart"></canvas>
                 </div>
-                <div class="chart-container lg:col-span-3" id="assuntoTrendChartContainer"> <!-- New chart for trend -->
+                <div class="chart-container lg:col-span-3" id="assuntoTrendChartContainer">
                     <canvas id="assuntoTrendChart"></canvas>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Seção de Próximas Revisões -->
+        <div id="revisoes-section" class="hidden lg:col-span-2 card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800">Próximas Revisões</h2>
+                <button id="open-revision-settings" class="form-button bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Ajustar Variáveis
+                </button>
+            </div>
+            
+            <!-- Resumo das Revisões -->
+            <div class="mb-6 p-4 rounded-lg shadow-inner bg-gray-50">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Resumo das Revisões</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="p-4 bg-red-100 text-red-800 rounded-lg shadow">
+                        <p class="text-sm font-medium">Em Atraso</p>
+                        <p id="summary-late" class="text-3xl font-bold">0</p>
+                    </div>
+                    <div class="p-4 bg-yellow-100 text-yellow-800 rounded-lg shadow">
+                        <p class="text-sm font-medium">Hoje</p>
+                        <p id="summary-today" class="text-3xl font-bold">0</p>
+                    </div>
+                    <div class="p-4 bg-blue-100 text-blue-800 rounded-lg shadow">
+                        <p class="text-sm font-medium">Próximas</p>
+                        <p id="summary-upcoming" class="text-3xl font-bold">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revisões Atrasadas (Cards) -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Revisões Em Atraso</h3>
+                <div id="late-revisions-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Late revision cards will be populated here by JS -->
+                    <p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>
+                </div>
+            </div>
+
+
+            <!-- Tabela de Todas as Revisões Agendadas -->
+            <div class="overflow-x-auto">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Todas as Revisões Agendadas</h3>
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                            <th class="py-3 px-6 text-left">Matéria</th>
+                            <th class="py-3 px-6 text-left">Assunto</th>
+                            <th class="py-3 px-6 text-left">Última Revisão</th>
+                            <th class="py-3 px-6 text-left">Próxima Revisão</th>
+                            <th class="py-3 px-6 text-left">Precisão Histórica</th>
+                            <th class="py-3 px-6 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="revisions-table-body" class="text-gray-700 text-sm font-light">
+                        <!-- Revisions will be populated here by JS -->
+                        <tr><td colspan="6" class="py-3 px-6 text-center">Nenhuma revisão agendada.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -1531,7 +1908,7 @@
             <button id="close-settings-modal" class="close-button">&times;</button>
             <h2 class="text-2xl font-semibold mb-6 text-gray-800">Configurações de Desempenho</h2>
 
-            <!-- Exportação e Importação (Primeiro) -->
+            <!-- Exportação e Importação -->
             <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Exportar / Importar Dados</h3>
                 <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 justify-end">
@@ -1576,14 +1953,14 @@
                     <div class="col-span-full">
                         <label for="accuracy-threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Limite de Precisão para Melhorar (%):</label>
                         <input type="number" id="accuracy-threshold-input" value="70" min="0" max="100"
-                               class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                 </div>
             </div>
 
             <hr class="my-6 border-gray-200">
 
-            <!-- Opções de Visualização (Melhorado o visual) -->
+            <!-- Opções de Visualização -->
             <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Opções de Visualização</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="display-options-container">
@@ -1620,7 +1997,7 @@
 
             <hr class="my-6 border-gray-200">
 
-            <!-- Opções de Comparação (para Gráfico de Evolução - Aprimorado) -->
+            <!-- Opções de Comparação -->
             <div class="p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Comparar Evolução (Gráfico de Tendência)</h3>
                 <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
@@ -1649,6 +2026,25 @@
             </div>
         </div>
     </div>
+    
+    <!-- Revision Settings Modal -->
+    <div id="revision-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="close-revision-settings" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Ajustar Variáveis de Revisão</h2>
+            <div class="p-4 bg-gray-50 rounded-lg mb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Como Funciona o Agendamento de Revisões</h3>
+                <p class="text-sm text-gray-600 mb-2">O sistema calcula a próxima data de revisão com base na sua <strong>precisão histórica acumulada</strong> para cada assunto. Dependendo da porcentagem de acertos, um intervalo de dias é escolhido aleatoriamente dentro da faixa que você definir abaixo. Por exemplo, se sua precisão estiver entre 70% e 80%, a próxima revisão será agendada para daqui a 30 a 60 dias.</p>
+                <p class="text-sm text-gray-600 mb-2">Isso ajuda a espaçar as revisões de forma inteligente, focando mais nos assuntos com menor desempenho e reforçando aqueles com bom desempenho em intervalos mais longos.</p>
+                <p class="text-sm text-gray-600"><strong>Recomenda-se realizar pelo menos 15 questões no dia da revisão, para garantir que a análise de desempenho seja representativa e o espaçamento continue adequado.</strong></p>
+
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos.</p>
+            <div class="space-y-4" id="revision-intervals-container">
+                <!-- Revision intervals will be populated by JS -->
+            </div>
+        </div>
+    </div>
 
     <!-- Edit Record Modal -->
     <div id="edit-modal" class="modal-overlay hidden">
@@ -1660,30 +2056,30 @@
                 <div>
                     <label for="edit-materia" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
                     <input type="text" id="edit-materia" name="materia" required
-                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <div>
                     <label for="edit-assunto" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
                     <input type="text" id="edit-assunto" name="assunto" required
-                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <div>
                     <label for="edit-data" class="block text-sm font-medium text-gray-700 mb-1">Data:</label>
                     <input type="date" id="edit-data" name="data" required
-                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <div>
                     <label for="edit-quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
                     <input type="number" id="edit-quantidadeFeita" name="quantidadeFeita" min="0" required
-                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <div>
                     <label for="edit-quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
                     <input type="number" id="edit-quantidadeAcertada" name="quantidadeAcertada" min="0" required
-                           class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                        class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Salvar Alterações
                 </button>
             </form>
@@ -1703,12 +2099,53 @@
                 </button>
             </div>
         </div>
-    </main>
-
-    <footer class="bg-gray-800 text-white p-4 text-center text-sm rounded-t-xl mt-8">
-        <div class="container">
-            © 2025 Registro de Questões. Todos os direitos reservados.
+    </div>
+    
+    <!-- Complete Revision Modal -->
+    <div id="complete-revision-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-sm">
+            <button id="close-complete-revision-modal" onclick="closeCompleteRevisionModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Concluir Revisão</h2>
+            <p class="text-sm text-gray-600 mb-4">Insira os resultados da sua revisão para <span id="revision-subject-name" class="font-bold text-blue-700"></span>.</p>
+            <form id="complete-revision-form" class="space-y-4">
+                <input type="hidden" id="complete-revision-id">
+                <div>
+                    <label for="revision-quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
+                    <input type="number" id="revision-quantidadeFeita" name="quantidadeFeita" min="0" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="revision-quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
+                    <input type="number" id="revision-quantidadeAcertada" name="quantidadeAcertada" min="0" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Registrar Revisão
+                </button>
+            </form>
         </div>
-    </footer>
+    </div>
+    
+    <!-- Reschedule Revision Modal -->
+    <div id="reschedule-revision-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-sm">
+            <button id="close-reschedule-revision-modal" onclick="closeRescheduleRevisionModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Reagendar Revisão</h2>
+            <p class="text-sm text-gray-600 mb-4">Escolha uma nova data para a revisão de <span id="reschedule-subject-name" class="font-bold text-blue-700"></span>.</p>
+            <form id="reschedule-form" class="space-y-4">
+                <input type="hidden" id="reschedule-revision-id">
+                <div>
+                    <label for="reschedule-date" class="block text-sm font-medium text-gray-700 mb-1">Nova Data:</label>
+                    <input type="date" id="reschedule-date" name="newDate" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Confirmar Reagendamento
+                </button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
