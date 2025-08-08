@@ -1174,23 +1174,44 @@
 
             revisionIntervals.forEach((interval, index) => {
                 const defaultInterval = defaultRevisionIntervals[index];
-                let isDefault = interval.minDays === defaultInterval.minDays && interval.maxDays === defaultInterval.maxDays;
+                let isModified = (interval.minDays !== defaultInterval.minDays || interval.maxDays !== defaultInterval.maxDays);
+                let isDefaultClass = isModified ? '' : 'invisible';
 
                 const intervalHtml = `
                     <div class="flex items-center space-x-2 my-2">
                         <span class="w-1/4 text-right text-sm text-gray-600">${interval.minAccuracy}% - ${interval.maxAccuracy}%:</span>
-                        <input type="number" id="min-days-${index}" value="${interval.minDays}" min="0" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
+                        <input type="number" id="min-days-${index}" value="${interval.minDays}" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
                         <span class="text-sm text-gray-600">-</span>
-                        <input type="number" id="max-days-${index}" value="${interval.maxDays}" min="0" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
+                        <input type="number" id="max-days-${index}" value="${interval.maxDays}" class="form-input w-1/4 px-2 py-1 border rounded-md text-sm">
                         <span class="text-sm text-gray-600">dias</span>
-                        <button onclick="resetRevisionInterval(${index})" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-2 rounded-md text-sm ${isDefault ? 'invisible' : ''}">Reset</button>
+                        <button onclick="resetRevisionInterval(${index})" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-2 rounded-md text-sm ${isDefaultClass}">Reset</button>
                     </div>
                 `;
                 intervalsContainer.innerHTML += intervalHtml;
             });
-            // Add event listeners to the new inputs
-            intervalsContainer.querySelectorAll('input').forEach(input => {
-                input.addEventListener('change', updateRevisionIntervals);
+            
+            // Add event listeners to the newly created inputs.
+            const inputs = intervalsContainer.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    const index = input.id.split('-').pop();
+                    const minInput = document.getElementById(`min-days-${index}`);
+                    const maxInput = document.getElementById(`max-days-${index}`);
+                    const resetButton = input.closest('div').querySelector('button');
+
+                    const isModified = (parseInt(minInput.value) !== defaultRevisionIntervals[index].minDays || 
+                                        parseInt(maxInput.value) !== defaultRevisionIntervals[index].maxDays);
+
+                    if (resetButton) {
+                        if (isModified) {
+                            resetButton.classList.remove('invisible');
+                        } else {
+                            resetButton.classList.add('invisible');
+                        }
+                    }
+                    
+                    updateRevisionIntervals();
+                });
             });
         };
         
@@ -1230,8 +1251,8 @@
                 const maxDays = parseInt(inputs[i+1].value);
 
                 if (isNaN(minDays) || isNaN(maxDays) || minDays < 0 || maxDays < 0 || minDays > maxDays) {
-                    showMessage('Valores de intervalo de revisão inválidos. Verifique se os números são positivos e o mínimo é menor ou igual ao máximo.', 'error');
-                    populateRevisionIntervals(); // Revert to previous values
+                    // Do not revert or show a blocking alert. Just log a warning.
+                    console.warn('Valores de intervalo de revisão inválidos detectados. A alteração não será salva.');
                     return;
                 }
                 newIntervals.push({
@@ -2047,14 +2068,13 @@
             <button id="close-revision-settings" class="close-button">&times;</button>
             <h2 class="text-2xl font-semibold mb-6 text-gray-800">Ajustar Variáveis de Revisão</h2>
             
-            <div class="flex flex-col space-y-4 mb-6">
-                <p class="text-sm text-gray-600">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos.</p>
-                <div id="revision-intervals-container" class="space-y-2">
-                    <!-- Revision intervals will be populated by JS -->
-                </div>
+            <p class="text-sm text-gray-600 mb-4">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos. O botão "Reset" será exibido em tempo real quando você fizer uma alteração.</p>
+            
+            <div class="space-y-4" id="revision-intervals-container">
+                <!-- Revision intervals will be populated by JS -->
             </div>
 
-            <div class="p-4 bg-gray-50 rounded-lg">
+            <div class="p-4 bg-gray-50 rounded-lg mt-6">
                 <h3 class="text-lg font-semibold text-gray-700 mb-2">Como Funciona o Agendamento de Revisões</h3>
                 <p class="text-sm text-gray-600 mb-2">O sistema calcula a próxima data de revisão com base na sua <strong>precisão histórica acumulada</strong> para cada assunto. Dependendo da porcentagem de acertos, um intervalo de dias é escolhido aleatoriamente dentro da faixa que você definir abaixo. Por exemplo, se sua precisão estiver entre 70% e 80%, a próxima revisão será agendada para daqui a 30 a 60 dias.</p>
                 <p class="text-sm text-gray-600">Isso ajuda a espaçar as revisões de forma inteligente, focando mais nos assuntos com menor desempenho e reforçando aqueles com bom desempenho em intervalos mais longos.</p>
