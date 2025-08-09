@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro e Desempenho de Questões</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN for graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chartjs-plugin-annotation for target line -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
     <script type="module">
         // Global variables for data
@@ -103,6 +100,27 @@
                 console.error("Erro ao salvar intervalos de revisão:", e);
             }
         };
+
+        // **NOVA FUNÇÃO: Salvar configurações de exibição**
+        const saveDisplaySettings = () => {
+            try {
+                localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
+                console.log("Configurações de exibição salvas no localStorage.");
+            } catch (e) {
+                console.error("Erro ao salvar configurações de exibição:", e);
+            }
+        };
+
+        // **NOVA FUNÇÃO: Salvar configurações de comparação**
+        const saveComparisonSettings = () => {
+            try {
+                localStorage.setItem('comparisonSettings', JSON.stringify(comparisonSettings));
+                console.log("Configurações de comparação salvas no localStorage.");
+            } catch (e) {
+                console.error("Erro ao salvar configurações de comparação:", e);
+            }
+        };
+
 
         // Function to load data from localStorage
         const loadQuestionData = () => {
@@ -413,16 +431,16 @@
                     const lateCard = document.createElement('div');
                     lateCard.className = `card p-4 rounded-lg shadow-sm border border-red-200 bg-red-50 flex flex-col justify-between`;
                     lateCard.innerHTML = `
-                         <div>
-                            <p class="text-lg font-bold text-red-800">${revision.materia.toUpperCase()}</p>
-                            <p class="text-sm text-red-700">${revision.assunto.toUpperCase()}</p>
-                            <p class="text-xs text-red-600 mt-2">Último acerto: ${revision.cumulativeAccuracy.toFixed(2)}%</p>
-                            <p class="text-xs text-red-600">Revisão: ${Math.abs(daysRemaining)} dias atrás</p>
-                        </div>
-                        <div class="mt-4 flex space-x-2">
-                             <button onclick="openCompleteRevisionModal('${revision.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md text-sm">Concluir</button>
-                             <button onclick="openRescheduleRevisionModal('${revision.id}')" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-sm">Reagendar</button>
-                        </div>
+                             <div>
+                                 <p class="text-lg font-bold text-red-800">${revision.materia.toUpperCase()}</p>
+                                 <p class="text-sm text-red-700">${revision.assunto.toUpperCase()}</p>
+                                 <p class="text-xs text-red-600 mt-2">Último acerto: ${revision.cumulativeAccuracy.toFixed(2)}%</p>
+                                 <p class="text-xs text-red-600">Revisão: ${Math.abs(daysRemaining)} dias atrás</p>
+                             </div>
+                             <div class="mt-4 flex space-x-2">
+                                 <button onclick="openCompleteRevisionModal('${revision.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md text-sm">Concluir</button>
+                                 <button onclick="openRescheduleRevisionModal('${revision.id}')" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-sm">Reagendar</button>
+                             </div>
                     `;
                     lateRevisionsContainer.appendChild(lateCard);
 
@@ -465,7 +483,7 @@
             
             // If no late revisions, show the default message
             if (countLate === 0) {
-                 lateRevisionsContainer.innerHTML = '<p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>';
+                lateRevisionsContainer.innerHTML = '<p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>';
             }
 
 
@@ -1200,7 +1218,7 @@
                     const resetButton = input.closest('div').querySelector('button');
 
                     const isModified = (parseInt(minInput.value) !== defaultRevisionIntervals[index].minDays || 
-                                        parseInt(maxInput.value) !== defaultRevisionIntervals[index].maxDays);
+                                         parseInt(maxInput.value) !== defaultRevisionIntervals[index].maxDays);
 
                     if (resetButton) {
                         if (isModified) {
@@ -1286,9 +1304,9 @@
                      }
                  }
              });
-         };
-         
-         const initializeComparisonSettings = () => {
+        };
+        
+        const initializeComparisonSettings = () => {
              const compareTypeRadios = document.querySelectorAll('input[name="compare-type"]');
              compareTypeRadios.forEach(radio => {
                  if (radio.value === comparisonSettings.type) {
@@ -1297,7 +1315,7 @@
              });
              updateComparisonOptionsVisibility();
              populateComparisonSelectionButtons();
-         };
+        };
 
         const editModal = document.getElementById('edit-modal');
         const editForm = document.getElementById('edit-form');
@@ -1402,7 +1420,7 @@
                  revisionSettingsModal.classList.remove('hidden');
                  populateRevisionIntervals();
              }
-         };
+        };
 
         window.closeRevisionSettingsModal = () => {
             const revisionSettingsModal = document.getElementById('revision-settings-modal');
@@ -1515,36 +1533,36 @@
             
             const completeRevisionForm = document.getElementById('complete-revision-form');
             if (completeRevisionForm) {
-                 completeRevisionForm.addEventListener('submit', (e) => {
-                     e.preventDefault();
-                     const revisionId = document.getElementById('complete-revision-id').value;
-                     const quantidadeFeita = parseInt(document.getElementById('revision-quantidadeFeita').value);
-                     const quantidadeAcertada = parseInt(document.getElementById('revision-quantidadeAcertada').value);
-                     
-                     if (isNaN(quantidadeFeita) || isNaN(quantidadeAcertada) || quantidadeAcertada > quantidadeFeita) {
-                         showMessage('Valores de questões inválidos. Verifique os números.', 'warning');
-                         return;
-                     }
-                     
-                     submitCompleteRevisionForm(revisionId, quantidadeFeita, quantidadeAcertada);
-                 });
-             }
-             
-             const rescheduleForm = document.getElementById('reschedule-form');
-             if (rescheduleForm) {
-                 rescheduleForm.addEventListener('submit', (e) => {
-                     e.preventDefault();
-                     const revisionId = document.getElementById('reschedule-revision-id').value;
-                     const newDate = document.getElementById('reschedule-date').value;
+                completeRevisionForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const revisionId = document.getElementById('complete-revision-id').value;
+                    const quantidadeFeita = parseInt(document.getElementById('revision-quantidadeFeita').value);
+                    const quantidadeAcertada = parseInt(document.getElementById('revision-quantidadeAcertada').value);
+                    
+                    if (isNaN(quantidadeFeita) || isNaN(quantidadeAcertada) || quantidadeAcertada > quantidadeFeita) {
+                        showMessage('Valores de questões inválidos. Verifique os números.', 'warning');
+                        return;
+                    }
+                    
+                    submitCompleteRevisionForm(revisionId, quantidadeFeita, quantidadeAcertada);
+                });
+            }
+            
+            const rescheduleForm = document.getElementById('reschedule-form');
+            if (rescheduleForm) {
+                rescheduleForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const revisionId = document.getElementById('reschedule-revision-id').value;
+                    const newDate = document.getElementById('reschedule-date').value;
 
-                     if (!newDate) {
-                         showMessage('Por favor, selecione uma data válida.', 'warning');
-                         return;
-                     }
+                    if (!newDate) {
+                        showMessage('Por favor, selecione uma data válida.', 'warning');
+                        return;
+                    }
 
-                     submitRescheduleForm(revisionId, newDate);
-                 });
-             }
+                    submitRescheduleForm(revisionId, newDate);
+                });
+            }
 
             const materiaFilter = document.getElementById('materia-filter');
             if (materiaFilter) {
@@ -1779,7 +1797,6 @@
     <main class="flex-grow container py-8">
         <div id="status-message" class="hidden p-4 mb-4 text-sm rounded-lg" role="alert"></div>
 
-        <!-- Seção de Registro de Questões -->
         <div id="registro-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-1 card">
                 <h2 class="text-2xl font-semibold mb-6 text-gray-800">Registrar Nova Questão</h2>
@@ -1812,7 +1829,7 @@
                                 class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <button type="submit"
-                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                         Registrar
                     </button>
                 </form>
@@ -1832,7 +1849,6 @@
                             </tr>
                         </thead>
                         <tbody id="records-table-body" class="text-gray-700 text-sm font-light">
-                            <!-- Records will be populated here by JS -->
                             <tr><td colspan="6" class="py-3 px-6 text-center">Nenhum registro para exibir.</td></tr>
                         </tbody>
                     </table>
@@ -1840,7 +1856,6 @@
             </div>
         </div>
 
-        <!-- Seção de Desempenho e Gráficos -->
         <div id="desempenho-section" class="hidden lg:col-span-2 card">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-800">Seu Desempenho</h2>
@@ -1850,7 +1865,6 @@
             </div>
 
             <div id="performance-summary" class="mb-8">
-                <!-- Performance summary will be injected here by JS -->
                 <p class="text-gray-600">Carregando dados de desempenho...</p>
             </div>
 
@@ -1870,7 +1884,6 @@
             </div>
         </div>
         
-        <!-- Seção de Próximas Revisões -->
         <div id="revisoes-section" class="hidden lg:col-span-2 card">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-800">Próximas Revisões</h2>
@@ -1879,7 +1892,6 @@
                 </button>
             </div>
             
-            <!-- Resumo das Revisões -->
             <div class="mb-6 p-4 rounded-lg shadow-inner bg-gray-50">
                 <h3 class="text-xl font-semibold text-gray-700 mb-4">Resumo das Revisões</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1898,17 +1910,14 @@
                 </div>
             </div>
 
-            <!-- Revisões Atrasadas (Cards) -->
             <div class="mb-6">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Revisões Em Atraso</h3>
                 <div id="late-revisions-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Late revision cards will be populated here by JS -->
                     <p class="text-gray-600 text-sm">Nenhuma revisão em atraso. Ótimo trabalho!</p>
                 </div>
             </div>
 
 
-            <!-- Tabela de Todas as Revisões Agendadas -->
             <div class="overflow-x-auto">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Todas as Revisões Agendadas</h3>
                 <table class="min-w-full bg-white rounded-lg shadow-md">
@@ -1923,7 +1932,6 @@
                         </tr>
                     </thead>
                     <tbody id="revisions-table-body" class="text-gray-700 text-sm font-light">
-                        <!-- Revisions will be populated here by JS -->
                         <tr><td colspan="6" class="py-3 px-6 text-center">Nenhuma revisão agendada.</td></tr>
                     </tbody>
                 </table>
@@ -1937,13 +1945,11 @@
         </div>
     </footer>
 
-    <!-- Settings Modal -->
     <div id="settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button id="close-settings-modal" class="close-button">&times;</button>
             <h2 class="text-2xl font-semibold mb-6 text-gray-800">Configurações de Desempenho</h2>
 
-            <!-- Exportação e Importação -->
             <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Exportar / Importar Dados</h3>
                 <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 justify-end">
@@ -1959,7 +1965,6 @@
 
             <hr class="my-6 border-gray-200">
 
-            <!-- Opções de Filtro -->
             <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Filtros de Dados</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1967,15 +1972,13 @@
                         <label for="materia-filter" class="block text-sm font-medium text-gray-700 mb-1">Matéria:</label>
                         <select id="materia-filter" class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             <option value="todos">Todas as Matérias</option>
-                            <!-- Options populated by JS -->
-                        </select>
+                            </select>
                     </div>
                     <div>
                         <label for="assunto-filter" class="block text-sm font-medium text-gray-700 mb-1">Assunto:</label>
                         <select id="assunto-filter" class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             <option value="todos">Todos os Assuntos</option>
-                            <!-- Options populated by JS -->
-                        </select>
+                            </select>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 col-span-full">
                         <label class="block text-sm font-medium text-gray-700 mb-1 col-span-full">Filtrar por Data:</label>
@@ -1995,7 +1998,6 @@
 
             <hr class="my-6 border-gray-200">
 
-            <!-- Opções de Visualização -->
             <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Opções de Visualização</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="display-options-container">
@@ -2032,7 +2034,6 @@
 
             <hr class="my-6 border-gray-200">
 
-            <!-- Opções de Comparação -->
             <div class="p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Comparar Evolução (Gráfico de Tendência)</h3>
                 <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
@@ -2051,8 +2052,7 @@
                 </div>
 
                 <div id="comparison-buttons-container" class="flex flex-wrap gap-2 hidden">
-                    <!-- Comparison selection buttons will be populated here by JS -->
-                </div>
+                    </div>
 
                 <div class="mt-4 p-3 bg-yellow-50 rounded-lg text-yellow-800 text-sm">
                     <p class="font-semibold mb-1">Dica de Comparação:</p>
@@ -2062,7 +2062,6 @@
         </div>
     </div>
     
-    <!-- Revision Settings Modal -->
     <div id="revision-settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button id="close-revision-settings" class="close-button">&times;</button>
@@ -2071,8 +2070,7 @@
             <p class="text-sm text-gray-600 mb-4">Ajuste os intervalos de dias para agendamento de revisões, com base na porcentagem de acertos. O botão "Reset" será exibido em tempo real quando você fizer uma alteração.</p>
             
             <div class="space-y-4" id="revision-intervals-container">
-                <!-- Revision intervals will be populated by JS -->
-            </div>
+                </div>
 
             <div class="p-4 bg-gray-50 rounded-lg mt-6">
                 <h3 class="text-lg font-semibold text-gray-700 mb-2">Como Funciona o Agendamento de Revisões</h3>
@@ -2084,7 +2082,6 @@
         </div>
     </div>
 
-    <!-- Edit Record Modal -->
     <div id="edit-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button id="close-edit-modal" class="close-button">&times;</button>
@@ -2117,14 +2114,13 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Salvar Alterações
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- Confirmation Modal -->
     <div id="confirmation-modal" class="modal-overlay hidden">
         <div class="modal-content text-center">
             <p id="confirmation-message" class="text-lg mb-6"></p>
@@ -2139,7 +2135,6 @@
         </div>
     </div>
     
-    <!-- Complete Revision Modal -->
     <div id="complete-revision-modal" class="modal-overlay hidden">
         <div class="modal-content max-w-sm">
             <button id="close-complete-revision-modal" onclick="closeCompleteRevisionModal()" class="close-button">&times;</button>
@@ -2158,14 +2153,13 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                             class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Registrar Revisão
                 </button>
             </form>
         </div>
     </div>
     
-    <!-- Reschedule Revision Modal -->
     <div id="reschedule-revision-modal" class="modal-overlay hidden">
         <div class="modal-content max-w-sm">
             <button id="close-reschedule-revision-modal" onclick="closeRescheduleRevisionModal()" class="close-button">&times;</button>
@@ -2179,7 +2173,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Confirmar Reagendamento
                 </button>
             </form>
