@@ -101,7 +101,7 @@
             }
         };
 
-        // **NOVA FUNÇÃO: Salvar configurações de exibição**
+        // Função: Salvar configurações de exibição
         const saveDisplaySettings = () => {
             try {
                 localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
@@ -111,7 +111,7 @@
             }
         };
 
-        // **NOVA FUNÇÃO: Salvar configurações de comparação**
+        // Função: Salvar configurações de comparação
         const saveComparisonSettings = () => {
             try {
                 localStorage.setItem('comparisonSettings', JSON.stringify(comparisonSettings));
@@ -431,16 +431,16 @@
                     const lateCard = document.createElement('div');
                     lateCard.className = `card p-4 rounded-lg shadow-sm border border-red-200 bg-red-50 flex flex-col justify-between`;
                     lateCard.innerHTML = `
-                             <div>
-                                 <p class="text-lg font-bold text-red-800">${revision.materia.toUpperCase()}</p>
-                                 <p class="text-sm text-red-700">${revision.assunto.toUpperCase()}</p>
-                                 <p class="text-xs text-red-600 mt-2">Último acerto: ${revision.cumulativeAccuracy.toFixed(2)}%</p>
-                                 <p class="text-xs text-red-600">Revisão: ${Math.abs(daysRemaining)} dias atrás</p>
-                             </div>
-                             <div class="mt-4 flex space-x-2">
-                                 <button onclick="openCompleteRevisionModal('${revision.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md text-sm">Concluir</button>
-                                 <button onclick="openRescheduleRevisionModal('${revision.id}')" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-sm">Reagendar</button>
-                             </div>
+                            <div>
+                                <p class="text-lg font-bold text-red-800">${revision.materia.toUpperCase()}</p>
+                                <p class="text-sm text-red-700">${revision.assunto.toUpperCase()}</p>
+                                <p class="text-xs text-red-600 mt-2">Último acerto: ${revision.cumulativeAccuracy.toFixed(2)}%</p>
+                                <p class="text-xs text-red-600">Revisão: ${Math.abs(daysRemaining)} dias atrás</p>
+                            </div>
+                            <div class="mt-4 flex space-x-2">
+                                <button onclick="openCompleteRevisionModal('${revision.id}')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded-md text-sm">Concluir</button>
+                                <button onclick="openRescheduleRevisionModal('${revision.id}')" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-md text-sm">Reagendar</button>
+                            </div>
                     `;
                     lateRevisionsContainer.appendChild(lateCard);
 
@@ -630,26 +630,26 @@
                     <div class="mb-6 p-4 bg-red-50 rounded-lg shadow-inner">
                         <h3 class="text-xl font-semibold text-red-700 mb-2">Áreas para Melhorar (Precisão < ${currentAccuracyThreshold}%)</h3>
                         ${materiasToImprove.length > 0 ? `
-                            <h4 class="font-medium text-red-600 mt-3">Matérias:</h4>
-                            <ul class="list-disc list-inside text-red-800">
-                                ${materiasToImprove.map(m => `<li>${m.name.toUpperCase()}: ${m.accuracy.toFixed(2)}% (${m.feita} questões, ${m.acertada} acertos, ${m.erros} erros)</li>`).join('')}
-                            </ul>
+                        <h4 class="font-medium text-red-600 mt-3">Matérias:</h4>
+                        <ul class="list-disc list-inside text-red-800">
+                            ${materiasToImprove.map(m => `<li>${m.name.toUpperCase()}: ${m.accuracy.toFixed(2)}% (${m.feita} questões, ${m.acertada} acertos, ${m.erros} erros)</li>`).join('')}
+                        </ul>
                         ` : ''}
                         ${assuntosToImprove.length > 0 ? `
-                            <h4 class="font-medium text-red-600 mt-3">Assuntos:</h4>
-                            <ul class="list-disc list-inside text-red-800">
-                                ${assuntosToImprove.map(a => `<li>${a.name.toUpperCase()}: ${a.accuracy.toFixed(2)}% (${a.feita} questões, ${a.acertada} acertos, ${a.erros} erros)</li>`).join('')}
-                            </ul>
+                        <h4 class="font-medium text-red-600 mt-3">Assuntos:</h4>
+                        <ul class="list-disc list-inside text-red-800">
+                            ${assuntosToImprove.map(a => `<li>${a.name.toUpperCase()}: ${a.accuracy.toFixed(2)}% (${a.feita} questões, ${a.acertada} acertos, ${a.erros} erros)</li>`).join('')}
+                        </ul>
                         ` : ''}
                     </div>
                 `;
             } else if (displaySettings.showImprovementAreas) {
-                     performanceSummary.innerHTML += `
-                     <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-inner">
-                         <h3 class="text-xl font-semibold text-green-700 mb-2">Parabéns!</h3>
-                         <p class="text-green-800">Sua precisão está excelente em todas as matérias e assuntos, ou acima do limite de ${currentAccuracyThreshold}%!</p>
-                     </div>
-                 `;
+                    performanceSummary.innerHTML += `
+                    <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-inner">
+                        <h3 class="text-xl font-semibold text-green-700 mb-2">Parabéns!</h3>
+                        <p class="text-green-800">Sua precisão está excelente em todas as matérias e assuntos, ou acima do limite de ${currentAccuracyThreshold}%!</p>
+                    </div>
+                `;
             }
 
 
@@ -1005,12 +1005,14 @@
             uniqueMaterias.forEach(materia => {
                 const option = document.createElement('option');
                 option.value = materia;
+                option.textContent = materia;
                 materiaDatalist.appendChild(option);
             });
 
             uniqueAssuntos.forEach(assunto => {
                 const option = document.createElement('option');
                 option.value = assunto;
+                option.textContent = assunto;
                 assuntoDatalist.appendChild(option);
             });
         };
@@ -1074,19 +1076,62 @@
                 if (!isAutomaticBackup) { showMessage('Não há dados para exportar.', 'warning'); }
                 return;
             }
+            
+            // Adicionando um novo campo 'revisionId' aos registros para rastrear revisões concluídas.
+            const recordsWithRevisionStatus = currentRecords.map(record => {
+                const recordForExport = { ...record };
+                const revision = currentRevisions.find(r => 
+                    r.materia.toLowerCase() === record.materia.toLowerCase() && 
+                    r.assunto.toLowerCase() === record.assunto.toLowerCase()
+                );
+                recordForExport.nextReviewDate = revision ? revision.nextReviewDate : '';
+                recordForExport.revisionStatus = 'N/A'; // Default status
+                
+                const recordDate = new Date(record.data);
+                if (revision) {
+                    const nextDate = new Date(revision.nextReviewDate);
+                    // Checa se a data do registro é igual à data da próxima revisão
+                    if (recordDate.toISOString().slice(0, 10) === nextDate.toISOString().slice(0, 10)) {
+                        recordForExport.revisionStatus = 'Concluído';
+                    } else {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        nextDate.setHours(0, 0, 0, 0);
 
-            const headers = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada'];
-            const rows = currentRecords.map(record => [
+                        const timeDiff = nextDate.getTime() - today.getTime();
+                        const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+                        if (daysRemaining < 0) {
+                            recordForExport.revisionStatus = 'Atrasada';
+                        } else if (daysRemaining === 0) {
+                            recordForExport.revisionStatus = 'Hoje';
+                        } else {
+                            recordForExport.revisionStatus = 'Próxima';
+                        }
+                    }
+                }
+                
+                return recordForExport;
+            });
+
+            const headers = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada', 'Próxima Revisão', 'Status da Revisão'];
+            
+            const rows = recordsWithRevisionStatus.map(record => [
                 record.materia,
                 record.assunto,
                 record.data,
                 record.quantidadeFeita,
-                record.quantidadeAcertada
+                record.quantidadeAcertada,
+                record.nextReviewDate,
+                record.revisionStatus
             ]);
 
             let csvContent = headers.join(',') + '\n';
             rows.forEach(row => {
-                csvContent += row.map(field => `"${field}"`).join(',') + '\n';
+                csvContent += row.map(field => {
+                    const sanitizedField = String(field).includes(',') ? `"${String(field).replace(/"/g, '""')}"` : field;
+                    return sanitizedField;
+                }).join(',') + '\n';
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1122,10 +1167,11 @@
                 }
 
                 const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-                const expectedHeaders = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada'];
+                // Atualizado para aceitar os novos cabeçalhos
+                const expectedHeaders = ['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada', 'Próxima Revisão', 'Status da Revisão'];
 
-                if (headers.length !== expectedHeaders.length || !expectedHeaders.every(h => headers.includes(h))) {
-                    showMessage('Cabeçalhos CSV inválidos. Certifique-se de que o arquivo contém: Matéria,Assunto,Data,Quantidade Feita,Quantidade Acertada', 'error');
+                if (headers.length < 5 || !['Matéria', 'Assunto', 'Data', 'Quantidade Feita', 'Quantidade Acertada'].every(h => headers.includes(h))) {
+                    showMessage('Cabeçalhos CSV inválidos. Certifique-se de que o arquivo contém pelo menos: Matéria,Assunto,Data,Quantidade Feita,Quantidade Acertada', 'error');
                     return;
                 }
 
@@ -1134,8 +1180,11 @@
                 let errorCount = 0;
 
                 for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-                    if (values.length !== headers.length) {
+                    // Use a regex para dividir a linha, respeitando as aspas duplas
+                    const values = lines[i].match(/(?:\"[^\"]*\"|[^,])+/g) || [];
+                    const trimmedValues = values.map(v => v.trim().replace(/"/g, ''));
+
+                    if (trimmedValues.length !== headers.length) {
                         console.warn(`Linha ignorada devido a formato incorreto: ${lines[i]}`);
                         errorCount++;
                         continue;
@@ -1143,7 +1192,7 @@
 
                     const record = {};
                     headers.forEach((header, index) => {
-                        record[header.replace(/\s/g, '')] = values[index];
+                        record[header.replace(/\s/g, '')] = trimmedValues[index];
                     });
 
                     const quantidadeFeita = parseInt(record.QuantidadeFeita);
@@ -1154,7 +1203,8 @@
                         errorCount++;
                         continue;
                     }
-
+                    
+                    // Não se importa com as novas colunas no import, apenas ignora
                     importedRecords.push({
                         id: Date.now().toString() + '-' + i,
                         materia: record.Matéria,
@@ -1426,6 +1476,78 @@
             const revisionSettingsModal = document.getElementById('revision-settings-modal');
             if (revisionSettingsModal) {
                 revisionSettingsModal.classList.add('hidden');
+            }
+        };
+        
+        // --- CÓDIGO DA SEÇÃO DE DOAÇÕES ---
+        // Função para copiar texto para a área de transferência
+        window.copyToClipboard = (elementId) => {
+            const copyText = document.getElementById(elementId);
+            if (!copyText) {
+                showMessage('Elemento para copiar não encontrado.', 'error');
+                return;
+            }
+            const textToCopy = copyText.value || copyText.textContent;
+            
+            // Usar document.execCommand para compatibilidade em iframes
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showMessage('Endereço copiado para a área de transferência!', 'success');
+            } catch (err) {
+                showMessage('Erro ao copiar. Por favor, copie manualmente.', 'warning');
+                console.error('Falha ao copiar texto:', err);
+            } finally {
+                document.body.removeChild(tempInput);
+            }
+        };
+
+        // Função para abrir a modal de doação
+        window.openDonationModal = () => {
+            const modal = document.getElementById('donation-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        };
+
+        // Função para fechar a modal de doação
+        window.closeDonationModal = () => {
+            const modal = document.getElementById('donation-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        };
+        // --- FIM DO CÓDIGO DA SEÇÃO DE DOAÇÕES ---
+        
+        // --- NOVO CÓDIGO PARA OS BOTÕES DE CONTATO E SOBRE ---
+        window.openContactModal = () => {
+            const modal = document.getElementById('contact-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        };
+
+        window.closeContactModal = () => {
+            const modal = document.getElementById('contact-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        };
+
+        window.openAboutModal = () => {
+            const modal = document.getElementById('about-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        };
+
+        window.closeAboutModal = () => {
+            const modal = document.getElementById('about-modal');
+            if (modal) {
+                modal.classList.add('hidden');
             }
         };
 
@@ -1715,6 +1837,7 @@
             width: 100%;
             margin-bottom: 2rem;
         }
+        /* Estilos para o overlay da modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -1727,13 +1850,14 @@
             align-items: center;
             z-index: 1000;
         }
+        /* Estilos para o conteúdo da modal */
         .modal-content {
             background-color: #ffffff;
             padding: 2rem;
             border-radius: 1rem;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             width: 90%;
-            max-width: 700px;
+            max-width: 700px; /* Aumentei o max-width para dar mais espaço */
             position: relative;
             max-height: 90vh;
             overflow-y: auto;
@@ -1774,13 +1898,39 @@
         .comparison-item-button:not(.selected):hover {
             background-color: #d1d5db;
         }
+        /* Estilos para o cabeçalho em telas pequenas */
+        @media (max-width: 640px) {
+            .header-buttons {
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+            }
+            .header-buttons button {
+                width: 100%;
+            }
+        }
+        /* Novo estilo para listas numeradas e com ícones */
+        .styled-list li {
+            position: relative;
+            padding-left: 2rem; /* Espaço para o ícone */
+        }
+
+        .styled-list li::before {
+            content: '✓'; /* Ícone de check */
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #10B981; /* Cor verde para o ícone */
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
     <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg rounded-b-xl">
         <div class="container flex justify-between items-center flex-wrap">
             <h1 class="text-3xl font-bold mb-4 sm:mb-0">Registro e Desempenho de Questões</h1>
-            <div class="flex items-center space-x-2 sm:space-x-4">
+            <!-- Botões de navegação e doação em uma única linha responsiva -->
+            <div class="flex items-center space-x-2 sm:space-x-4 flex-wrap header-buttons mt-4 sm:mt-0">
                 <button id="show-register-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
                     Registrar
                 </button>
@@ -1789,6 +1939,15 @@
                 </button>
                 <button id="show-revisions-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
                     Revisões
+                </button>
+                <button onclick="openAboutModal()" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
+                    Sobre
+                </button>
+                <button onclick="openContactModal()" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
+                    Contatos
+                </button>
+                <button onclick="openDonationModal()" class="form-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition-all duration-300 transform hover:scale-105">
+                    Apoie o Projeto
                 </button>
             </div>
         </div>
@@ -1829,7 +1988,7 @@
                                 class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <button type="submit"
-                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                         Registrar
                     </button>
                 </form>
@@ -1945,6 +2104,69 @@
         </div>
     </footer>
 
+    <!-- MODAL DE DOAÇÕES -->
+    <div id="donation-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-2xl">
+            <button onclick="closeDonationModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">❤️ Apoie o Projeto</h2>
+            <p class="text-gray-600 mb-6 text-center">Sua doação ajuda a manter esta ferramenta viva e em constante melhoria. Obrigado pelo apoio!</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <!-- PIX -->
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">PIX</h3>
+                    <p class="text-sm text-gray-500 mb-2">Chave aleatória:</p>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <input type="text" id="pix-key" value="00000000-0000-0000-0000-000000000000" readonly class="flex-grow px-2 py-1 text-sm bg-white border border-gray-300 rounded-md shadow-sm">
+                        <button onclick="copyToClipboard('pix-key')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm">
+                            Copiar
+                        </button>
+                    </div>
+                    <div class="flex justify-center">
+                        <!-- Placeholder for a PIX QR Code -->
+                        <img src="https://placehold.co/150x150/e2e8f0/0f172a?text=QR+Code+PIX" alt="QR Code PIX" class="rounded-lg">
+                    </div>
+                </div>
+
+                <!-- Criptomoedas -->
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
+                    <h3 class="text-lg font-bold text-gray-800">Criptomoedas</h3>
+                    <!-- BTC -->
+                    <div>
+                        <p class="font-medium text-gray-700 mb-1">Bitcoin (BTC)</p>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="btc-address" value="bc1qabcdefghijklmnopqrstuvwxyz0123456789" readonly class="flex-grow px-2 py-1 text-sm bg-white border border-gray-300 rounded-md shadow-sm">
+                            <button onclick="copyToClipboard('btc-address')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm">
+                                Copiar
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Monero -->
+                    <div>
+                        <p class="font-medium text-gray-700 mb-1">Monero (XMR)</p>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="xmr-address" value="44tLgQ459v7v9jY6J4z8aA3N92Z5g7G6cW5g7G6cW5g7G6cW5g7G6cW5g7G6c" readonly class="flex-grow px-2 py-1 text-sm bg-white border border-gray-300 rounded-md shadow-sm">
+                            <button onclick="copyToClipboard('xmr-address')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm">
+                                Copiar
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Cardano -->
+                    <div>
+                        <p class="font-medium text-gray-700 mb-1">Cardano (ADA)</p>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="ada-address" value="addr1q9abcdefghijklmnopqrstuvwxyza0123456789" readonly class="flex-grow px-2 py-1 text-sm bg-white border border-gray-300 rounded-md shadow-sm">
+                            <button onclick="copyToClipboard('ada-address')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm">
+                                Copiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- FIM DA MODAL DE DOAÇÕES -->
+
     <div id="settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button id="close-settings-modal" class="close-button">&times;</button>
@@ -1998,7 +2220,7 @@
 
             <hr class="my-6 border-gray-200">
 
-            <div class="mb-6 p-4 border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-4 border border-gray-200 rounded-lg shadow-sm">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Opções de Visualização</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="display-options-container">
                     <label class="flex items-center p-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 transition-colors duration-200">
@@ -2114,7 +2336,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Salvar Alterações
                 </button>
             </form>
@@ -2153,7 +2375,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                             class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Registrar Revisão
                 </button>
             </form>
@@ -2173,7 +2395,177 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                             class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Confirmar Reagendamento
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONTATOS -->
+    <div id="contact-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-md text-center">
+            <button onclick="closeContactModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Fale Conosco</h2>
+            <p class="text-gray-600 mb-6">Estamos aqui para ajudar com suas dúvidas e sugestões!</p>
+            
+            <div class="space-y-4 text-left">
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 class="font-bold text-gray-800">Instagram</h3>
+                    <p class="text-gray-600 break-words">Siga-me para atualizações e mais dicas de estudo.</p>
+                    <a href="https://www.instagram.com/meu_instagram" target="_blank" class="text-blue-600 hover:underline">@meu_instagram</a>
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 class="font-bold text-gray-800">E-mail</h3>
+                    <p class="text-gray-600 break-words">Envie-nos um e-mail para qualquer questão ou feedback.</p>
+                    <a href="mailto:meu.email@example.com" class="text-blue-600 hover:underline">meu.email@example.com</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- FIM DA MODAL DE CONTATOS -->
+
+    <!-- MODAL SOBRE O PROJETO -->
+    <div id="about-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button onclick="closeAboutModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Sobre o Projeto e o Desenvolvedor</h2>
+            
+            <div class="space-y-6 text-gray-700">
+                <div class="p-4 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="flex items-center text-xl font-semibold text-gray-800 mb-2">
+                        <svg class="h-6 w-6 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Quem sou eu e o que faço
+                    </h3>
+                    <p>Olá! Sou um desenvolvedor apaixonado por tecnologia e por criar soluções que realmente façam a diferença na vida das pessoas. Este aplicativo foi concebido e construído por mim com um único objetivo em mente: ajudar estudantes e concurseiros a otimizar seus estudos de forma inteligente e eficiente, sem nenhum custo.</p>
+                </div>
+
+                <div class="p-4 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="flex items-center text-xl font-semibold text-gray-800 mb-2">
+                        <svg class="h-6 w-6 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253" />
+                        </svg>
+                        O Motivo Filantrópico
+                    </h3>
+                    <p>O desenvolvimento desta ferramenta é um projeto filantrópico. Acredito que o acesso a ferramentas de estudo de qualidade não deve ser limitado por barreiras financeiras. Por isso, decidi disponibilizar este aplicativo de forma totalmente gratuita. Meu objetivo é democratizar o acesso a métodos de estudo que podem aumentar a produtividade e a chance de sucesso em provas e concursos.</p>
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="flex items-center text-xl font-semibold text-gray-800 mb-2">
+                        <svg class="h-6 w-6 text-purple-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        A Importância da Doação
+                    </h3>
+                    <p>Embora o aplicativo seja gratuito, a sua manutenção, hospedagem e futuras atualizações têm custos. Se esta ferramenta foi útil para você, considere fazer uma doação. Não importa o valor, cada centavo é um incentivo para que eu continue trabalhando neste projeto, melhorando-o e adicionando novas funcionalidades para a comunidade. Sua doação é um investimento direto na educação e no desenvolvimento de uma ferramenta acessível a todos. Agradeço imensamente o seu apoio!</p>
+                </div>
+
+                <div class="p-4 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="flex items-center text-xl font-semibold text-gray-800 mb-2">
+                        <svg class="h-6 w-6 text-yellow-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Guia de Utilização do Aplicativo
+                    </h3>
+                    <p class="font-bold">Para começar, o aplicativo funciona em 3 seções principais:</p>
+                    
+                    <div class="space-y-4 mt-4">
+                        <div class="p-4 bg-white rounded-lg shadow-inner border border-gray-100">
+                            <h4 class="text-lg font-semibold text-gray-800">1. Seção de Registro</h4>
+                            <p class="mt-2 text-sm text-gray-600">É a página inicial onde você registrará o seu desempenho. Para cada bloco de questões que você fizer:</p>
+                            <ul class="list-disc list-inside space-y-1 mt-2 text-sm text-gray-600">
+                                <li>Preencha os campos de <strong>Matéria</strong> e <strong>Assunto</strong> (o aplicativo oferece sugestões com base nos seus registros anteriores).</li>
+                                <li>Coloque a <strong>Data</strong> em que a atividade foi realizada.</li>
+                                <li>Informe a <strong>Quantidade Feita</strong> de questões e a <strong>Quantidade Acertada</strong>.</li>
+                                <li>Clique em <strong>"Registrar"</strong>. O aplicativo salvará seus dados localmente no navegador.</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-inner border border-gray-100">
+                            <h4 class="text-lg font-semibold text-gray-800">2. Seção de Desempenho</h4>
+                            <p class="mt-2 text-sm text-gray-600">Aqui, você pode visualizar seu progresso.</p>
+                            <ul class="list-disc list-inside space-y-1 mt-2 text-sm text-gray-600">
+                                <li>O <strong>Resumo Geral</strong> mostra a sua performance total.</li>
+                                <li>Os gráficos exibem a sua precisão por matéria e assunto, além da evolução ao longo do tempo.</li>
+                                <li>Na área <strong>"Áreas para Melhorar"</strong>, o aplicativo lista automaticamente os assuntos onde sua precisão está abaixo da meta (70%, mas você pode ajustar isso nas configurações).</li>
+                                <li>Em <strong>Configurações</strong>, você pode ajustar filtros, esconder ou mostrar gráficos e até mesmo exportar seus dados para um arquivo CSV para manter um backup pessoal.</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-inner border border-gray-100">
+                            <h4 class="text-lg font-semibold text-gray-800">3. Seção de Revisões</h4>
+                            <p class="mt-2 text-sm text-gray-600">Esta é a seção mais importante para a revisão espaçada.</p>
+                            <ul class="list-disc list-inside space-y-1 mt-2 text-sm text-gray-600">
+                                <li>Com base no seu desempenho registrado, o aplicativo agenda automaticamente as próximas revisões.</li>
+                                <li>Assuntos com baixa precisão terão revisões mais frequentes, enquanto aqueles com alta precisão terão intervalos mais longos.</li>
+                                <li>As revisões são classificadas como "Em Atraso", "Hoje" ou "Próximas", ajudando a priorizar.</li>
+                                <li>Quando você conclui uma revisão, basta clicar em <strong>"Concluir"</strong> e registrar seu novo desempenho para que o aplicativo recalcule o próximo agendamento.</li>
+                                <li>Ajuste os intervalos de revisão em <strong>"Ajustar Variáveis"</strong> para personalizar a frequência de acordo com sua necessidade.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-sm text-gray-600">Lembre-se: Para que o sistema funcione corretamente, é fundamental que você <strong>registre seus dados com frequência</strong> e <strong>realize as revisões agendadas</strong>. Aproveite a ferramenta e bons estudos!</p>
+            </div>
+        </div>
+    </div>
+    <!-- FIM DA MODAL SOBRE O PROJETO -->
+
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <p id="confirmation-message" class="text-lg mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirm-yes" class="form-button bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Sim
+                </button>
+                <button id="confirm-no" class="form-button bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md">
+                    Não
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="complete-revision-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-sm">
+            <button id="close-complete-revision-modal" onclick="closeCompleteRevisionModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Concluir Revisão</h2>
+            <p class="text-sm text-gray-600 mb-4">Insira os resultados da sua revisão para <span id="revision-subject-name" class="font-bold text-blue-700"></span>.</p>
+            <form id="complete-revision-form" class="space-y-4">
+                <input type="hidden" id="complete-revision-id">
+                <div>
+                    <label for="revision-quantidadeFeita" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Feita:</label>
+                    <input type="number" id="revision-quantidadeFeita" name="quantidadeFeita" min="0" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="revision-quantidadeAcertada" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Acertada:</label>
+                    <input type="number" id="revision-quantidadeAcertada" name="quantidadeAcertada" min="0" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                    Registrar Revisão
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="reschedule-revision-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-sm">
+            <button id="close-reschedule-revision-modal" onclick="closeRescheduleRevisionModal()" class="close-button">&times;</button>
+            <h2 class="text-2xl font-semibold mb-6 text-gray-800">Reagendar Revisão</h2>
+            <p class="text-sm text-gray-600 mb-4">Escolha uma nova data para a revisão de <span id="reschedule-subject-name" class="font-bold text-blue-700"></span>.</p>
+            <form id="reschedule-form" class="space-y-4">
+                <input type="hidden" id="reschedule-revision-id">
+                <div>
+                    <label for="reschedule-date" class="block text-sm font-medium text-gray-700 mb-1">Nova Data:</label>
+                    <input type="date" id="reschedule-date" name="newDate" required
+                            class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Confirmar Reagendamento
                 </button>
             </form>
