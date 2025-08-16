@@ -1343,16 +1343,16 @@
 
         const initializeDisplaySettingsCheckboxes = () => {
              document.querySelectorAll('#display-options-container input[type="checkbox"]').forEach(checkbox => {
-                 if (checkbox) {
-                     checkbox.checked = displaySettings[checkbox.id];
-                     const parentLabel = checkbox.closest('label');
-                     if (parentLabel) {
-                         parentLabel.classList.toggle('bg-blue-100', checkbox.checked);
-                         parentLabel.classList.toggle('border-blue-400', checkbox.checked);
-                         parentLabel.classList.toggle('bg-gray-50', !checkbox.checked);
-                         parentLabel.classList.toggle('border-gray-300', !checkbox.checked);
-                     }
-                 }
+                if (checkbox) {
+                    checkbox.checked = displaySettings[checkbox.id];
+                    const parentLabel = checkbox.closest('label');
+                    if (parentLabel) {
+                        parentLabel.classList.toggle('bg-blue-100', checkbox.checked);
+                        parentLabel.classList.toggle('border-blue-400', checkbox.checked);
+                        parentLabel.classList.toggle('bg-gray-50', !checkbox.checked);
+                        parentLabel.classList.toggle('border-gray-300', !checkbox.checked);
+                    }
+                }
              });
         };
         
@@ -1902,7 +1902,7 @@
         @media (max-width: 640px) {
             .header-buttons {
                 flex-direction: column;
-                align-items: center;
+                align-items: stretch; /* Garante que os botões ocupem a largura total */
                 gap: 1rem;
             }
             .header-buttons button {
@@ -1927,27 +1927,33 @@
 </head>
 <body class="min-h-screen flex flex-col">
     <header class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg rounded-b-xl">
-        <div class="container flex justify-between items-center flex-wrap">
-            <h1 class="text-3xl font-bold mb-4 sm:mb-0">Registro e Desempenho de Questões</h1>
+        <div class="container flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-3xl font-bold mb-4 sm:mb-0 text-center sm:text-left">Registro e Desempenho de Questões</h1>
             <!-- Botões de navegação e doação em uma única linha responsiva -->
             <div class="flex items-center space-x-2 sm:space-x-4 flex-wrap header-buttons mt-4 sm:mt-0">
-                <button id="show-register-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
-                    Registrar
+                <button id="show-register-section" class="flex-1 min-w-[120px] bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-4 0V3m0 2a2 2 0 002 2h2m-4 0h6m-3-4v8m0-8a4 4 0 01-4 4H7"></path></svg>
+                    <span>Registrar</span>
                 </button>
-                <button id="show-performance-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
-                    Desempenho
+                <button id="show-performance-section" class="flex-1 min-w-[120px] bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055zM12 21a9 9 0 100-18 9 9 0 000 18z"></path></svg>
+                    <span>Desempenho</span>
                 </button>
-                <button id="show-revisions-section" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
-                    Revisões
+                <button id="show-revisions-section" class="flex-1 min-w-[120px] bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-4 4V3m-4 4h8M5 11h14M7 15h6m-6 4h4m-4-8v8a2 2 0 002 2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2z"></path></svg>
+                    <span>Revisões</span>
                 </button>
-                <button onclick="openAboutModal()" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
-                    Sobre
+                <button onclick="openAboutModal()" class="flex-1 min-w-[120px] bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Sobre</span>
                 </button>
-                <button onclick="openContactModal()" class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base">
-                    Contatos
+                <button onclick="openContactModal()" class="flex-1 min-w-[120px] bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-3 sm:px-4 rounded-lg shadow-md text-sm sm:text-base flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-17 4v7a2 2 0 002 2h12a2 2 0 002-2v-7"></path></svg>
+                    <span>Contato</span>
                 </button>
-                <button onclick="openDonationModal()" class="form-button bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition-all duration-300 transform hover:scale-105">
-                    Apoie o Projeto
+                <button onclick="openDonationModal()" class="form-button flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                    <span>Apoie o Projeto</span>
                 </button>
             </div>
         </div>
@@ -1988,7 +1994,7 @@
                                 class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     </div>
                     <button type="submit"
-                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                         Registrar
                     </button>
                 </form>
@@ -2124,7 +2130,7 @@
                     </div>
                     <div class="flex justify-center">
                         <!-- Placeholder for a PIX QR Code -->
-                        <img src="pix.jpeg" alt="QR Code PIX" class="rounded-lg">
+                        <img src="https://placehold.co/200x200/e5e7eb/4b5563?text=QR+Code+PIX" alt="QR Code PIX" class="rounded-lg">
                     </div>
                 </div>
 
@@ -2336,7 +2342,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Salvar Alterações
                 </button>
             </form>
@@ -2375,7 +2381,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Registrar Revisão
                 </button>
             </form>
@@ -2395,7 +2401,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Confirmar Reagendamento
                 </button>
             </form>
@@ -2545,7 +2551,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                                         class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Registrar Revisão
                 </button>
             </form>
@@ -2565,7 +2571,7 @@
                             class="form-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 </div>
                 <button type="submit"
-                                         class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                                 class="form-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                     Confirmar Reagendamento
                 </button>
             </form>
